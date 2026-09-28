@@ -10,7 +10,8 @@
     "paydrip:test": "vitest run contract/src/test/paydrip.test.ts",
     "preview:wallet": "node scripts/preview-wallet.mjs",
     "preview:status": "node scripts/preview-deploy.mjs --status",
-    "preview:deploy": "node scripts/preview-deploy.mjs --deploy"
+    "preview:deploy": "node scripts/preview-deploy.mjs --deploy",
+    "preview:verify": "node scripts/preview-verify.mjs"
   },
   "engines": {
     "node": ">=24.11.1"

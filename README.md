@@ -64,7 +64,7 @@ docker compose -f compose.preview.yml down
 
 ## Deployment evidence
 
-**Network:** Preview. **PayDrip contract address:** `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c`. **Deployment transaction:** `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`. **Block height:** `1069550`. The deployment SDK returned these values on 2026-09-29. A separate `queryContractState` call to the Preview indexer returned a non-null state for the same address. The funding wallet is `mn_addr_preview1fpcx7ql99zdlhxt4swdahv3ja73806au5eqqgmay4cq7f72jxwrq8t5rst`; it is not the contract address. The local deployment manifest is Git-ignored at `.secrets/preview-deployment.json`.
+**Network:** Preview. **PayDrip contract address:** `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c`. **Deployment transaction:** `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`. **Block height:** `1069550`. The deployment SDK returned these values on 2026-09-29. Run `npm run preview:verify` to query both current and deployment state from the Preview indexer using the public `deployment.preview.json` manifest. This confirms the contract address is indexed; the transaction ID and block height remain values reported by the deployment SDK. The funding wallet is `mn_addr_preview1fpcx7ql99zdlhxt4swdahv3ja73806au5eqqgmay4cq7f72jxwrq8t5rst`; it is not the contract address. The local deployment manifest is Git-ignored at `.secrets/preview-deployment.json`.
 
 ## Further work
 
