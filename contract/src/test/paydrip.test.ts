@@ -93,4 +93,38 @@ describe('PayDrip protocol', () => {
     s.call('revokeRecord', commitment, s.epoch, s.adminSecret);
     expect(() => s.call('proveEmployment', s.record, s.randomness, s.employeeSecret, b32())).toThrow();
   });
+
+  it('rejects unauthorized, malformed and duplicate payroll registration', () => {
+    const s = setup();
+    s.call('openEpoch', s.epoch, s.adminSecret);
+    expect(() => s.call('registerRecord', s.record, s.randomness, b32())).toThrow();
+    expect(() => s.call('registerRecord', { ...s.record, domain: b32() }, s.randomness, s.adminSecret)).toThrow();
+    expect(() => s.call('registerRecord', { ...s.record, organization: b32() }, s.randomness, s.adminSecret)).toThrow();
+    expect(() => s.call('registerRecord', { ...s.record, currency: bytes('EUR') }, s.randomness, s.adminSecret)).toThrow();
+    expect(() => s.call('registerRecord', { ...s.record, monthlySalaryMinor: 0n }, s.randomness, s.adminSecret)).toThrow();
+    s.call('registerRecord', s.record, s.randomness, s.adminSecret);
+    expect(() => s.call('registerRecord', s.record, s.randomness, s.adminSecret)).toThrow();
+    expect(s.state().records.size()).toBe(1n);
+  });
+
+  it('accepts exact tier boundaries and rejects invalid tiers and contexts', () => {
+    const s = setup();
+    s.call('openEpoch', s.epoch, s.adminSecret);
+    const issued: Array<{ record: PayrollRecord; randomness: Uint8Array }> = [];
+    for (const [salary, tier] of [[300000n, 1n], [500000n, 2n], [1000000n, 3n]] as const) {
+      const record = { ...s.record, monthlySalaryMinor: salary };
+      const randomness = b32();
+      s.call('registerRecord', record, randomness, s.adminSecret);
+      s.call('proveIncomeTier', record, randomness, s.employeeSecret, tier, b32());
+      issued.push({ record, randomness });
+    }
+    const below = { ...s.record, monthlySalaryMinor: 299999n };
+    const randomness = b32();
+    s.call('registerRecord', below, randomness, s.adminSecret);
+    expect(() => s.call('proveIncomeTier', below, randomness, s.employeeSecret, 1n, b32())).toThrow();
+    expect(() => s.call('proveIncomeTier', issued[0].record, issued[0].randomness, s.employeeSecret, 0n, b32())).toThrow();
+    expect(() => s.call('proveIncomeTier', issued[0].record, issued[0].randomness, s.employeeSecret, 4n, b32())).toThrow();
+    expect(() => s.call('proveEmployment', issued[0].record, issued[0].randomness, s.employeeSecret, new Uint8Array(32))).toThrow();
+    expect(s.state().claims.size()).toBe(3n);
+  });
 });
