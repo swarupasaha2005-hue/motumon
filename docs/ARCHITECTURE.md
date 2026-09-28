@@ -1,6 +1,6 @@
 # PayDrip — V1 protocol architecture
 
-**Status:** design plus first implementation, 29 September 2026. Six circuits now compile and pass focused off-chain tests; no PayDrip contract has been deployed. This document separates validated behavior from items that still need Preview validation.
+**Status:** design plus first implementation, 29 September 2026. Six circuits compile and pass focused off-chain tests. The constructor was deployed to Preview at `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c` in transaction `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`, block `1069550`. A separate indexer query returned contract state. Payroll circuit calls, transaction disclosure, and a web frontend still need Preview validation.
 
 **Product statement:** Payroll belongs on-chain. Salaries don't. V1 proves an employer-issued payroll record and an income threshold. It does **not** transfer compensation or prove that a salary was paid.
 
@@ -94,7 +94,7 @@ Repository root is `PayDrip/`. Keep `contract/`, a small shared TypeScript contr
 1. **Toolchain spike:** install the compatibility-matrix compiler; compile a minimal typed `persistentCommit` record and authenticated set membership; inspect generated bindings, verifier keys, ZKIR, public call data, and `disclose()` behavior. Resolve contract-domain availability and claim-handle linkage before freezing schema.
 2. **Protocol:** replace bboard Compact; implement and test all six circuits and witness functions; maintain a field-by-field disclosure audit. Include negative tests for forged records and identity substitution.
 3. **Client:** encrypted local employee/admin state, authenticated record delivery, explicit consent, verifier context checking; then a real wallet-connected web UX. No server receives secrets.
-4. **Network:** deploy from a funded Preview wallet, verify indexer and explorer state, record genuine address/transactions, then test Preprod if required by the current program.
+4. **Network:** the Preview constructor deployment and indexer state check are complete. Exercise all payroll circuits on Preview, inspect public transaction data and an explorer, then test Preprod if required by the current program.
 5. **Independent security review and regression:** inspect witness trust, access control, compiled disclosure, public traces, and secret-handling paths; fix and rerun targeted tests.
 
 | Area | Must-pass cases |
@@ -109,7 +109,7 @@ Repository root is `PayDrip/`. Keep `contract/`, a small shared TypeScript contr
 
 ## 19–20. Deployment and evidence plan
 
-Use the [official compatibility matrix](https://docs.midnight.network/relnotes/support-matrix) before installing: as checked on 29 September 2026 it lists Compact devtools `0.5.1`, compiler `0.31.1`, runtime `0.16.0`, Midnight.js/testkit `4.1.1`, wallet SDK `1.2.0`, connector API `4.0.1`, and proof server `8.1.0`. Locally, `compact --version` returned `0.5.1`, Node `v26.7.0`, npm `11.19.0`; the installed **compiler** version and usable Docker/proof server have not yet been checked. The bboard contract currently declares `language_version 0.23`, so it is not evidence that PayDrip compiles under the current toolchain.
+Use the [official compatibility matrix](https://docs.midnight.network/relnotes/support-matrix) before installing: as checked on 29 September 2026 it lists Compact devtools `0.5.1`, compiler `0.31.1`, runtime `0.16.0`, Midnight.js/testkit `4.1.1`, wallet SDK `1.2.0`, connector API `4.0.1`, and proof server `8.1.0`. Locally, `compact --version` returned `0.5.1`, Node `v26.7.0`, npm `11.19.0`; PayDrip compiled with compiler `0.31.1` and used the local proof server image `8.1.0` for its Preview constructor deployment. The old bboard contract's `language_version 0.23` is unrelated to this evidence.
 
 Build locally with full managed `contract/`, `keys/`, and `zkir/` artifacts, run off-chain adversarial tests, then deploy with the documented Midnight.js providers and a local proof server. Preview's [official endpoints](https://docs.midnight.network/relnotes/network) are the first target; a wallet needs test NIGHT and DUST registration for fees. Record the network, contract address returned by `deployContract`, deployment transaction ID, block height, explorer/indexer link, compiler and SDK versions, and the exact test/compile commands and outputs. Keep seeds in ignored local environment or wallet storage. Never substitute a wallet address for a contract address. The copied bboard README badges, compiler output, and any prior deployment claim are not PayDrip evidence. Current Rise In challenge/submission rules and whether Preprod is mandatory remain **unverified**; obtain the current program page before submission.
 
