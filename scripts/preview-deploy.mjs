@@ -1,8 +1,11 @@
 import { randomBytes } from 'node:crypto';
+import dns from 'node:dns';
+import net from 'node:net';
 import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
+import https from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { firstValueFrom, filter, timeout } from 'rxjs';
+import { firstValueFrom, filter, throttleTime, timeout, tap } from 'rxjs';
 import { WebSocket } from 'ws';
 import { FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
@@ -19,6 +22,58 @@ import { Contract } from '../contract/src/managed/paydrip/contract/index.js';
 
 globalThis.WebSocket = WebSocket;
 setNetworkId('preview');
+
+// Preview's DNS can return an edge that accepts TCP/TLS but stalls on requests.
+// Select responsive DNS answers locally; HTTPS and WSS still verify the official hostname.
+async function selectResponsiveIp(hostname, probePath) {
+  const addresses = await dns.promises.resolve4(hostname);
+  const checks = addresses.map((address) => new Promise((resolve) => {
+    const started = Date.now();
+    const request = https.get({
+      hostname, path: probePath, timeout: 4_000,
+      lookup: (_host, options, callback) => {
+        if (options?.all) callback(null, [{ address, family: 4 }]);
+        else callback(null, address, 4);
+      },
+    }, (response) => {
+      response.resume();
+      resolve(response.statusCode === 200 ? { address, latencyMs: Date.now() - started } : null);
+    });
+    request.on('timeout', () => request.destroy());
+    request.on('error', () => resolve(null));
+  }));
+  const results = await Promise.all(checks);
+  const selected = results.filter(Boolean).sort((a, b) => a.latencyMs - b.latencyMs)[0]?.address;
+  if (!selected) throw new Error(`No responsive Preview endpoint for ${hostname}`);
+  return selected;
+}
+
+const responsive = new Map(await Promise.all([
+  ['rpc.preview.midnight.network', '/health'],
+  ['indexer.preview.midnight.network', '/ready'],
+].map(async ([hostname, probePath]) => [hostname, await selectResponsiveIp(hostname, probePath)])));
+for (const [hostname, envName] of [
+  ['rpc.preview.midnight.network', 'PAYDRIP_RPC_IP'],
+  ['indexer.preview.midnight.network', 'PAYDRIP_INDEXER_IP'],
+]) {
+  const override = process.env[envName];
+  if (override) {
+    if (net.isIP(override) !== 4 || !(await dns.promises.resolve4(hostname)).includes(override)) {
+      throw new Error(`${envName} must be a current IPv4 address for ${hostname}`);
+    }
+    responsive.set(hostname, override);
+  }
+}
+const originalLookup = dns.lookup.bind(dns);
+dns.lookup = (hostname, options, callback) => {
+  const selected = responsive.get(hostname);
+  if (!selected) return originalLookup(hostname, options, callback);
+  const cb = typeof options === 'function' ? options : callback;
+  const opts = typeof options === 'function' ? {} : options;
+  if (opts?.all) cb(null, [{ address: selected, family: 4 }]);
+  else cb(null, selected, 4);
+};
+console.log(`Selected responsive Preview endpoints: RPC ${responsive.get('rpc.preview.midnight.network')}, indexer ${responsive.get('indexer.preview.midnight.network')}.`);
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const secretDir = path.join(root, '.secrets');
@@ -51,8 +106,11 @@ const dustOptions = {
   additionalFeeOverhead: 1_000n,
   feeBlocksMargin: 5,
 };
-const built = await FluentWalletBuilder.forEnvironment(environment)
-  .withDustOptions(dustOptions).withSeed(seed).buildWithoutStarting();
+const walletBuilder = FluentWalletBuilder.forEnvironment(environment).withDustOptions(dustOptions).withSeed(seed);
+// A fresh wallet must replay the Preview DUST event stream. Larger batches avoid
+// spending most of that first sync waiting between tiny default batches.
+walletBuilder.config.batchUpdates = { size: 100, timeout: 10, spacing: 0 };
+const built = await walletBuilder.buildWithoutStarting();
 const { wallet, seeds, keystore } = built;
 const zswapSecretKeys = ZswapSecretKeys.fromSeed(seeds.shielded);
 const dustSecretKey = DustSecretKey.fromSeed(seeds.dust);
@@ -69,6 +127,8 @@ try {
     throw new Error('Use --status or --deploy');
   } else {
   const synced = await firstValueFrom(wallet.state().pipe(
+    throttleTime(15_000, undefined, { leading: true, trailing: true }),
+    tap((s) => console.log(`Wallet sync: unshielded=${s.unshielded.progress?.isConnected ?? false} ${s.unshielded.progress?.appliedId ?? 0n}/${s.unshielded.progress?.highestTransactionId ?? 0n}, dust=${s.dust.state.progress?.isConnected ?? false} ${s.dust.state.progress?.appliedIndex ?? 0n}/${s.dust.state.progress?.highestRelevantWalletIndex ?? 0n}, observed NIGHT=${s.unshielded.balances[unshieldedToken().raw] ?? 0n}`)),
     filter((s) => s.unshielded.progress?.isStrictlyComplete?.() && s.dust.state.progress?.isStrictlyComplete?.()),
     timeout({ first: 900_000 }),
   ));
@@ -142,7 +202,10 @@ try {
       walletProvider: provider,
       midnightProvider: provider,
     };
-    const compiledContract = CompiledContract.withCompiledFileAssets(CompiledContract.make('paydrip', Contract), assets);
+    const compiledContract = CompiledContract.withCompiledFileAssets(
+      CompiledContract.withWitnesses(CompiledContract.make('paydrip', Contract), {}),
+      assets,
+    );
     const deployed = await deployContract(providers, { compiledContract, args: [org, domain, Buffer.from('USD'), adminHash] });
     const publicTx = deployed.deployTxData.public;
     const manifest = {
