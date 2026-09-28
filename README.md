@@ -36,6 +36,12 @@ npm ci
 npm run paydrip:compile
 npm run paydrip:test
 npm run preview:wallet
+```
+
+Back up the generated seed securely, then fund the printed **unshielded Preview address** at the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/). After the faucet transfer arrives, continue:
+
+```bash
+cd '/Users/swarupasaha/Projects/Payroll Midnight/PayDrip'
 docker compose -f compose.preview.yml up -d
 curl http://127.0.0.1:6300/health
 npm run preview:status
