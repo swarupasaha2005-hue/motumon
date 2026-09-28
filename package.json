@@ -1,10 +1,17 @@
 {
-  "name": "@midnight-ntwrk/example-bboard",
+  "name": "paydrip",
   "version": "0.1.0",
   "author": "IOG",
   "license": "MIT",
   "private": true,
   "type": "module",
+  "scripts": {
+    "paydrip:compile": "compact compile contract/src/paydrip.compact contract/src/managed/paydrip",
+    "paydrip:test": "vitest run contract/src/test/paydrip.test.ts",
+    "preview:wallet": "node scripts/preview-wallet.mjs",
+    "preview:status": "node scripts/preview-deploy.mjs --status",
+    "preview:deploy": "node scripts/preview-deploy.mjs --deploy"
+  },
   "engines": {
     "node": ">=24.11.1"
   },

@@ -39,6 +39,7 @@ jspm_packages/
 
 # dotenv environment variables file
 .env
+.secrets/
 
 # MacOS
 .DS_Store

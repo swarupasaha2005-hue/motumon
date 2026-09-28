@@ -1,0 +1,108 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+export struct PayrollRecord {
+  domain: Bytes<32>;
+  organization: Bytes<32>;
+  epoch: Bytes<32>;
+  employeePseudonym: Bytes<32>;
+  monthlySalaryMinor: Uint<64>;
+  currency: Bytes<3>;
+}
+
+export sealed ledger organization: Bytes<32>;
+export sealed ledger domain: Bytes<32>;
+export sealed ledger currency: Bytes<3>;
+export sealed ledger adminAuthenticator: Bytes<32>;
+export ledger epochs: Map<Bytes<32>, Uint<8>>;
+export ledger records: Map<Bytes<32>, Bytes<32>>;
+export ledger revoked: Set<Bytes<32>>;
+export ledger claims: Map<Bytes<32>, Uint<8>>;
+export ledger claimRecords: Map<Bytes<32>, Bytes<32>>;
+
+constructor(org: Bytes<32>, deploymentDomain: Bytes<32>, unit: Bytes<3>, adminHash: Bytes<32>) {
+  assert(unit == pad(3, "USD"), "V1 supports USD only");
+  organization = disclose(org);
+  domain = disclose(deploymentDomain);
+  currency = disclose(unit);
+  adminAuthenticator = disclose(adminHash);
+}
+
+// The caller provides secret preimages. They are checked inside the circuit.
+circuit requireAdmin(secret: Bytes<32>): [] {
+  assert(persistentHash<Vector<3, Bytes<32>>>([pad(32, "paydrip:admin:v1"), domain, secret]) == adminAuthenticator, "Unauthorized");
+}
+
+circuit employeePseudonym(secret: Bytes<32>, epoch: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([pad(32, "paydrip:employee:v1"), domain, epoch, secret]);
+}
+
+circuit recordCommitment(record: PayrollRecord, randomness: Bytes<32>): Bytes<32> {
+  return persistentCommit<PayrollRecord>(record, randomness);
+}
+
+export circuit openEpoch(epoch: Bytes<32>, adminSecret: Bytes<32>): [] {
+  requireAdmin(adminSecret);
+  assert(!epochs.member(disclose(epoch)), "Epoch exists");
+  epochs.insert(disclose(epoch), 1);
+}
+
+export circuit registerRecord(record: PayrollRecord, randomness: Bytes<32>, adminSecret: Bytes<32>): [] {
+  requireAdmin(adminSecret);
+  assert(epochs.lookup(disclose(record.epoch)) == 1, "Epoch not open");
+  assert(record.domain == domain, "Wrong domain");
+  assert(record.organization == organization, "Wrong organization");
+  assert(record.currency == currency, "Wrong currency");
+  assert(record.monthlySalaryMinor > 0, "Invalid salary");
+  const commitment = recordCommitment(record, randomness);
+  assert(!records.member(disclose(commitment)), "Duplicate record");
+  records.insert(disclose(commitment), disclose(record.epoch));
+}
+
+export circuit revokeRecord(commitment: Bytes<32>, epoch: Bytes<32>, adminSecret: Bytes<32>): [] {
+  requireAdmin(adminSecret);
+  assert(epochs.lookup(disclose(epoch)) == 1, "Epoch not open");
+  assert(records.member(disclose(commitment)), "Unknown record");
+  assert(records.lookup(disclose(commitment)) == epoch, "Wrong epoch");
+  assert(!revoked.member(disclose(commitment)), "Already revoked");
+  revoked.insert(disclose(commitment));
+}
+
+circuit requireEmployeeRecord(record: PayrollRecord, randomness: Bytes<32>, employeeSecret: Bytes<32>): [] {
+  assert(record.domain == domain, "Wrong domain");
+  assert(record.organization == organization, "Wrong organization");
+  assert(record.currency == currency, "Wrong currency");
+  assert(record.employeePseudonym == employeePseudonym(employeeSecret, record.epoch), "Unauthorized");
+  assert(epochs.member(disclose(record.epoch)), "Unknown epoch");
+  const commitment = recordCommitment(record, randomness);
+  assert(records.member(disclose(commitment)), "Unknown record");
+  assert(records.lookup(disclose(commitment)) == record.epoch, "Wrong epoch");
+  assert(!revoked.member(disclose(commitment)), "Revoked record");
+}
+
+export circuit proveEmployment(record: PayrollRecord, randomness: Bytes<32>, employeeSecret: Bytes<32>, context: Bytes<32>): [] {
+  requireEmployeeRecord(record, randomness, employeeSecret);
+  assert(context != pad(32, ""), "Missing context");
+  assert(!claims.member(disclose(context)), "Request already used");
+  claims.insert(disclose(context), 0);
+  claimRecords.insert(disclose(context), disclose(recordCommitment(record, randomness)));
+}
+
+// V1 supports three fixed monthly salary tiers in the deployment currency's minor units.
+export circuit proveIncomeTier(record: PayrollRecord, randomness: Bytes<32>, employeeSecret: Bytes<32>, tier: Uint<8>, context: Bytes<32>): [] {
+  requireEmployeeRecord(record, randomness, employeeSecret);
+  assert(context != pad(32, ""), "Missing context");
+  assert(tier >= 1 && tier <= 3, "Invalid tier");
+  const threshold: Uint<64> = tier == 1 ? 300000 : tier == 2 ? 500000 : 1000000;
+  assert(record.monthlySalaryMinor >= threshold, "Below threshold");
+  assert(!claims.member(disclose(context)), "Request already used");
+  claims.insert(disclose(context), disclose(tier));
+  claimRecords.insert(disclose(context), disclose(recordCommitment(record, randomness)));
+}
+
+export circuit closeEpoch(epoch: Bytes<32>, adminSecret: Bytes<32>): [] {
+  requireAdmin(adminSecret);
+  assert(epochs.lookup(disclose(epoch)) == 1, "Epoch not open");
+  epochs.insert(disclose(epoch), 2);
+}

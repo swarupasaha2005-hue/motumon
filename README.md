@@ -1,277 +1,65 @@
-# Bulletin Board DApp
+# PayDrip
 
-This project is built on the [Midnight Network](https://midnight.network/).
+**Payroll belongs on-chain. Salaries don't.**
 
-[![Generic badge](https://img.shields.io/badge/Compact%20Compiler-0.30.0-1abc9c.svg)](https://shields.io/)
-[![Generic badge](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://shields.io/)
+PayDrip is an experimental Midnight Compact contract for employer-issued private payroll records and selective historical employment and income-tier claims. The contract does **not** transfer salaries, prove that payment occurred, or guarantee anonymity. Public record commitments and claim receipts are linkable, and repeated tier answers can reveal a salary band. Read [the protocol architecture](docs/ARCHITECTURE.md) before using it.
 
+## Current status
 
-> **Use this repo as a template. Do not fork it.**
->  
-> This repository is intended to be used via GitHub’s “Use this template” flow.  
-> Forking this repo is discouraged, as forks are not tracked as independent projects.
+- **Implemented locally:** six Compact circuits in `contract/src/paydrip.compact` and focused off-chain tests.
+- **Compiled/tested:** run the commands below to reproduce on your machine. Generated `managed/paydrip` artifacts are ignored by Git and must be generated locally.
+- **Preview deployment:** pending a funded wallet, DUST, local proof server, and a successful deployment transaction. No contract address is claimed yet.
+- **Web app:** planned. The copied bboard packages still present in the repository are not PayDrip product code and must not be presented as such.
 
-A Midnight smart contract example demonstrating a simple one-item bulletin board with zero-knowledge proofs on testnet. Users can post a single message at a time, and only the message author can remove it.
+## Public and private model
 
-## Project Structure
+The ledger exposes organization and deployment-domain identifiers, admin authenticator, USD unit, epoch status, randomized record commitments, revocations, and successful claim receipts. Claim receipts expose the associated record handle, so claims for the same record can be linked. Exact salary, employee secret, and commitment randomness remain private inputs. The employer already knows the salary it issues. The actual generated call payload and disclosure surface require a network inspection before making stronger privacy claims.
 
-```
-bulletin-board/
-├── contract/               # Smart contract in Compact language
-│   └── src/               # Contract source and utilities
-├── api/                   # Methods, classes and types for CLI and UI
-├── bboard-cli/            # Command-line interface
-│   └── src/               # CLI implementation
-└── bboard-ui/             # Web browser interface
-    └── src/               # Web UI implementation
-```
+## Compact circuits
+
+`openEpoch`, `registerRecord`, `revokeRecord`, `proveEmployment`, `proveIncomeTier`, `closeEpoch`. V1 uses USD monthly salary in cents and tiers of $3,000, $5,000, and $10,000. Employment means inclusion in a historical payroll epoch, not current employment.
 
 ## Prerequisites
 
-### 1. Node.js Version Check
+- Node.js 22 or later and npm; this repo's template declares Node.js 24.11.1 or later.
+- [Compact devtools and compiler](https://docs.midnight.network/relnotes/support-matrix): checked with devtools 0.5.1 and compiler 0.31.1.
+- Docker with enough disk space for the proof server and its initial proving-key downloads.
+- A funded **Preview** NIGHT wallet; NIGHT must be registered for DUST generation before deployment. See the [official funding guide](https://docs.midnight.network/guides/acquire-tokens).
 
-You need Node.js:
+## Exact Preview commands
 
-```bash
-node --version
-```
-
-Expected output: `v24.11.1` or higher. The repository includes an [.nvmrc](./.nvmrc) pinned to `24.11.1`.
-
-If you get a lower version: [Install Node.js LTS](https://nodejs.org/).
-
-### 2. Docker Installation
-
-The [proof server](https://docs.midnight.network/develop/tutorial/using/proof-server) runs in Docker and is required for both CLI and UI to generate zero-knowledge proofs:
+From a terminal on this computer:
 
 ```bash
-docker --version
+cd '/Users/swarupasaha/Projects/Payroll Midnight/PayDrip'
+npm ci
+npm run paydrip:compile
+npm run paydrip:test
+npm run preview:wallet
+docker compose -f compose.preview.yml up -d
+curl http://127.0.0.1:6300/health
+npm run preview:status
+npm run preview:deploy
 ```
 
-Expected output: `Docker version X.X.X`.
+`preview:wallet` prints only the unshielded Preview address. Its seed is generated once in `.secrets/preview-wallet.seed` with mode 600 and is Git-ignored. Back it up securely before funding. Fund **that address** using the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/); do not paste a seed into the faucet or chat. `preview:status` may take time for a fresh wallet to sync. `preview:deploy` registers NIGHT for DUST if necessary, waits for spendable DUST, then submits the PayDrip deployment. It prints and locally stores the actual contract address and transaction details only after the network returns them. Do not run it multiple times blindly: it refuses a second deployment when a local deployment manifest already contains an address.
 
-If Docker is not found: [Install Docker Desktop](https://docs.docker.com/desktop/). Make sure Docker Desktop is running.
+The administrator secret and encrypted private-state password are generated into Git-ignored `.secrets/` files. Back them up securely; losing them can prevent future payroll administration or contract maintenance. The deployment-domain and organization IDs are random public identifiers. The deployed contract address is distinct from the funding wallet address.
 
-### 3. Lace Wallet Extension (UI Only)
-
-For the web interface, install the official Lace wallet extension on [Chrome Store](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) or the [Edge Store](https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia) (tested with version 1.36.0).
-
-After installing, set up the Midnight wallet:
-
-1. Create a **new wallet** — Midnight will appear as a network option
-2. Set **Network** to **Preprod**
-3. Set **Proof server** to **Local (http://localhost:6300)** — this must point to your local proof server started via Docker
-4. Click **Enter Wallet**
-5. Fund your wallet with tNIGHT tokens from the [Preprod Faucet](https://midnight-tmnight-preprod.nethermind.dev/)
-6. Go to **Tokens** in the wallet, click **Generate tDUST**, and confirm the transaction — tDUST tokens are required to pay transaction fees on preprod
-
-## Setup Instructions
-
-### Install Project Dependencies
+To stop the local proof server:
 
 ```bash
-npm install
+docker compose -f compose.preview.yml down
 ```
 
-This repository uses npm workspaces. Run installation once from the repository root.
+## Tests and limitations
 
-### Compile the Smart Contract
+`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain; they do not establish that proving, transaction submission, indexing, or the frontend work on Preview. There is no confidential payment feature. Issuer honesty, delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
 
-The Compact compiler (`compactc 0.31.0`) generates TypeScript bindings and zero-knowledge circuits from the smart contract source code:
+## Deployment evidence
 
-```bash
-cd contract
-npm run compact    # Compiles the Compact contract
-npm run build      # Copies compiled files to dist/
-cd ..
-```
+**Network:** Preview (planned). **PayDrip contract address:** pending genuine deployment. **Transaction:** pending. After deployment, record the actual address, transaction ID, block height, and an explorer/indexer check here. Never use a placeholder or the funding wallet address as a contract address.
 
-Expected output:
+## Further work
 
-```
-> compact
-> compact compile src/bboard.compact ./src/managed/bboard
-
-Compiling 2 circuits:
-  circuit "post" (k=14, rows=10070)
-  circuit "takeDown" (k=14, rows=10087)
-
-> build
-> rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/bboard.compact ./dist
-
-```
-
-### Build the CLI Interface
-
-```bash
-cd bboard-cli
-npm run build
-cd ..
-```
-
-### Build the UI Interface (Optional)
-
-Only needed if you want to use the web interface:
-
-```bash
-cd bboard-ui
-npm run build
-cd ..
-```
-
-## Option 1: CLI Interface
-
-### Start the Proof Server
-
-The CLI requires a local proof server running in Docker:
-
-```bash
-cd bboard-cli
-docker compose -f proof-server-local.yml up -d
-```
-
-This uses `midnightntwrk/proof-server:8.0.3` on `http://127.0.0.1:6300`.
-
-### Run the CLI
-
-```bash
-# For preprod network
-npm run preprod-remote
-
-# For preview network
-npm run preview-remote
-```
-
-### Using the CLI
-
-#### Create a Wallet
-
-1. Choose option `1` to build a fresh wallet
-2. The system will generate a wallet address and seed
-3. **Save both the address and seed** - you'll need them later
-
-Expected output is similar to:
-
-```
-Your wallet seed is: [64-character hex string]
-Using unshielded address: mn_addr_preprod1hdvtst70zfgd8wvh7l8ppp7mcrxnjn56wc5hlxpwflz3fxdykaesrw0ln4 waiting for funds...
-```
-
-#### Fund Your Wallet
-
-Before deploying contracts, you need testnet tokens.
-
-1. Copy your wallet address from the output above
-2. Visit the [faucet](https://midnight-tmnight-preprod.nethermind.dev/)
-3. Paste your address and request funds
-4. Wait for the CLI to detect the funds (takes 2-3 minutes)
-
-Expected output after funding is similar to:
-
-```
-Your NIGHT wallet balance is: 1000000000
-```
-
-#### Deploy Your Contract
-
-1. Choose the contract deployment option
-2. Wait for deployment (takes ~30 seconds)
-3. **Save the contract address** for future use
-
-Expected output:
-
-```
-Deployed bulletin board contract at address: [contract address]
-```
-
-#### Use the Bulletin Board
-
-You can now:
-
-- **Post** a message to the bulletin board
-- **View** the current message
-- **Remove** your message (only if you posted it)
-- **Exit** when done
-
-Each action creates a real transaction on Midnight Testnet using zero-knowledge proofs generated by the proof server.
-
-## Option 2: Web UI Interface
-
-The web interface uses the same proof server and requires additional browser setup.
-
-### Start the Proof Server (if not already running)
-
-If you haven't started the proof server for the CLI, start it now:
-
-```bash
-cd bboard-cli
-docker compose -f proof-server-local.yml up -d
-cd ..
-```
-
-Verify it's running:
-
-```bash
-docker ps
-```
-
-### Start the Web Interface
-
-The UI can run against preprod or preview networks:
-
-```bash
-cd bboard-ui
-
-# For preprod network
-npm run build:start
-
-# For preview network
-npm run build:start:preview
-```
-
-The UI will be available at:
-
-- http://127.0.0.1:8080
-
-### Browser Setup
-
-1. **Open the UI URL** in a browser with Lace wallet extension installed
-2. **Set up Lace wallet** if it's your first time
-3. **Authorize the application** when Lace wallet prompts
-4. Use the bulletin board web interface
-
-## Useful Links
-
-- Get Testnet tNIGHT on [Preprod Faucet](https://midnight-tmnight-preprod.nethermind.dev/) or [Preview Faucet](https://midnight-tmnight-preview.nethermind.dev/)
-- [Midnight Documentation](https://docs.midnight.network/examples/dapps/bboard) - Complete developer guide
-- [Compatibility Matrix](https://docs.midnight.network/relnotes/support-matrix) - Current supported Midnight component versions
-- [Compact Language Guide](https://docs.midnight.network/compact/writing) - Smart contract language reference
-- Get Lace wallet on the [Chrome Store](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) or the [Edge Store](https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia)
-
-## Troubleshooting
-
-| Common Issue                       | Solution                                                                                                  |
-| ---------------------------------- |-----------------------------------------------------------------------------------------------------------|
-| `npm install` fails                | Ensure you're using Node `v24.11.1` or newer. Older Node versions can install with warnings but are not the target runtime |
-| Contract compilation fails         | Ensure the Compact toolchain is installed and run `npm run compact` from `contract/`                      |
-| Network connection timeout         | CLI requires internet connection, restart if connection times out                                         |
-| Token funding takes too long       | Wait 1-2 minutes, funding is automatic in CLI                                                             |
-| "Application not authorized" error | Start proof server: `docker compose -f proof-server-local.yml up -d`                                      |
-| Lace wallet not detected           | Install Lace wallet browser extension and refresh page                                                    |
-| Docker issues                      | Ensure Docker Desktop is running, check `docker --version`                                                |
-| Port 6300 in use                   | Run `docker compose down` then restart services                                                           |
-| Dependencies won't install         | Use Node.js LTS version. For older npm versions, you may need `--legacy-peer-deps`                        |
-| Contract deployment fails          | Verify wallet has sufficient balance and network connection                                               |
-
-## Notes
-
-- CLI and UI can run simultaneously and share the same proof server
-- Proof server (Docker) is required for both CLI and UI to generate zero-knowledge proofs
-- Contract must be compiled before building CLI or UI
-- Fund your wallet using the testnet faucet before deploying contracts
-
-## Implementation Notes
-
-- **Transaction fee configuration**  
-  The default `additionalFeeOverhead` value (`500_000_000_000_000_000n`) from `@midnight-ntwrk/testkit-js` is required on the `undeployed` network. Lower values can fail with `BalanceCheckOverspend` on the node side. On remote networks, that overhead requires too much dust, so the CLI overrides it to `1_000n`.
-- CLI private state is stored per contract address, matching the `Midnight.js 4.x` private-state provider model.
+Replace the leftover bboard packages with a PayDrip API, secure employee opening delivery, and a real privacy-first web app. Review the generated public payloads and claim linkage on Preview. Validate the current Rise In program requirements before submission.
