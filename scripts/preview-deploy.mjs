@@ -23,6 +23,22 @@ import { Contract } from '../contract/src/managed/paydrip/contract/index.js';
 globalThis.WebSocket = WebSocket;
 setNetworkId('preview');
 
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const secretDir = path.join(root, '.secrets');
+const deploymentPath = path.join(secretDir, 'preview-deployment.json');
+const privatePasswordPath = path.join(secretDir, 'preview-private-state.password');
+
+async function assertNotAlreadyDeployed() {
+  try {
+    const prior = JSON.parse(await readFile(deploymentPath, 'utf8'));
+    if (prior.contractAddress) throw new Error(`Already deployed at ${prior.contractAddress}; refusing duplicate deployment`);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
+if (process.argv[2] === '--deploy') await assertNotAlreadyDeployed();
+
 // Preview's DNS can return an edge that accepts TCP/TLS but stalls on requests.
 // Select responsive DNS answers locally; HTTPS and WSS still verify the official hostname.
 async function selectResponsiveIp(hostname, probePath) {
@@ -75,12 +91,8 @@ dns.lookup = (hostname, options, callback) => {
 };
 console.log(`Selected responsive Preview endpoints: RPC ${responsive.get('rpc.preview.midnight.network')}, indexer ${responsive.get('indexer.preview.midnight.network')}.`);
 
-const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const secretDir = path.join(root, '.secrets');
 const seed = (await readFile(path.join(secretDir, 'preview-wallet.seed'), 'utf8')).trim();
 if (!/^[0-9a-f]{64}$/.test(seed)) throw new Error('Missing or invalid local Preview wallet seed');
-const deploymentPath = path.join(secretDir, 'preview-deployment.json');
-const privatePasswordPath = path.join(secretDir, 'preview-private-state.password');
 const environment = {
   walletNetworkId: 'preview', networkId: 'preview',
   indexer: 'https://indexer.preview.midnight.network/api/v4/graphql',
@@ -153,10 +165,7 @@ try {
 
     const proofHealth = await fetch(`${environment.proofServer}/health`, { signal: AbortSignal.timeout(5_000) });
     if (!proofHealth.ok) throw new Error('Local proof server is unhealthy');
-    try {
-      const prior = JSON.parse(await readFile(deploymentPath, 'utf8'));
-      if (prior.contractAddress) throw new Error(`Already deployed at ${prior.contractAddress}; refusing duplicate deployment`);
-    } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    await assertNotAlreadyDeployed();
 
     await mkdir(secretDir, { recursive: true, mode: 0o700 });
     const password = await loadOrCreatePrivateFile(privatePasswordPath, () => `PayDrip-${randomBytes(24).toString('base64url')}!`);
