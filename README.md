@@ -23,7 +23,7 @@ docker compose -f compose.preview.yml up -d
 npm run web:dev
 ```
 
-Open `http://127.0.0.1:5173` for the landing page and click **Launch App** to open `app/index.html`. The terminal binds to `127.0.0.1`, checks the browser origin and a per-process session token for writes, and reads the public deployment manifest. Its **Connect local wallet** action uses `.secrets/preview-wallet.seed` on that same machine; it never requests or returns the seed. The wallet needs Preview NIGHT registered for DUST generation. Organization actions also require the existing local `.secrets/preview-admin.json`; a connected wallet alone does not grant administrator authorization. Employee claims need an independently held employee secret and private record opening. Run an employee terminal on the employee's own machine, not on an issuer-controlled server. The local service and proof server receive private inputs transiently during a claim; nothing is saved to browser storage.
+Open `http://127.0.0.1:5173` for the landing page and click **Launch App** to open `app/index.html`. The terminal binds to `127.0.0.1`, checks the browser origin and a per-process session token for writes, and reads the public deployment manifest. **Connect 1AM** requests access to the 1AM browser extension through Midnight DApp Connector v4, verifies the Preview network, and shows its public unshielded address. It does not use that wallet to sign or submit PayDrip contract calls. **Connect local wallet** uses `.secrets/preview-wallet.seed` on that same machine; it never requests or returns the seed. The local wallet needs Preview NIGHT registered for DUST generation. Organization actions also require the existing local `.secrets/preview-admin.json`; a connected wallet alone does not grant administrator authorization. Employee claims need an independently held employee secret and private record opening. Run an employee terminal on the employee's own machine, not on an issuer-controlled server. The local service and proof server receive private inputs transiently during a claim; nothing is saved to browser storage.
 
 The issuer must download the private record package **before** registration and deliver it through an authenticated private channel. The employee shares only their derived pseudonym with the issuer. Verifiers issue a fresh context and look up the finalized claim receipt by that context. The contract does not bind a context to a named verifier. See [the terminal's action inventory](docs/WEB_TERMINAL.md) for exact data and trust boundaries.
 
@@ -31,7 +31,7 @@ The issuer must download the private record package **before** registration and 
 
 ## Vercel hosting
 
-`vercel.json` builds and serves `dist/web`. The landing page and terminal interface can be hosted on Vercel, but the hosted terminal is clearly labeled as an interface preview and disables contract actions. The local wallet, administrator vault, proof server, and private record operations are **not** deployed to Vercel. To make payroll calls, run `npm run web:dev` and the proof server on a machine you control. `.vercelignore` excludes local secrets and protocol server code from CLI uploads.
+`vercel.json` builds and serves `dist/web`. The landing page and terminal interface can be hosted on Vercel. The hosted terminal can connect to 1AM and display a Preview address, but is labeled as an interface preview and disables contract actions. The local wallet, administrator vault, proof server, and private record operations are **not** deployed to Vercel. To make payroll calls, run `npm run web:dev` and the proof server on a machine you control. `.vercelignore` excludes local secrets and protocol server code from CLI uploads.
 
 ## Public and private model
 
@@ -90,4 +90,4 @@ docker compose -f compose.preview.yml down
 
 ## Further work
 
-Exercise every terminal circuit on Preview with separate issuer and employee local wallets, inspect generated public payloads and claim linkage, and independently review the local service. Add authenticated employer-to-employee opening delivery and a browser wallet adapter before any remotely hosted application. Validate the current Rise In program requirements before submission.
+Exercise every terminal circuit on Preview with separate issuer and employee local wallets, inspect generated public payloads and claim linkage, and independently review the local service. Add authenticated employer-to-employee opening delivery and wire the browser wallet into the contract transaction providers before any remotely hosted payroll application. The 1AM connection currently provides only public wallet identity and network status. Validate the current Rise In program requirements before submission.
