@@ -64,3 +64,5 @@ managed/
 
 .claude
 .midnight-expert
+.vercel
+.env*
