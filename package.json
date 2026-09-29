@@ -5,6 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "web:dev": "node apps/web/dev-server.mjs",
+    "web:build": "node apps/web/build.mjs",
+    "web:check": "node --check apps/web/src/main.js && node --check apps/web/dev-server.mjs && node --check apps/web/build.mjs",
     "paydrip:compile": "compact compile contract/src/paydrip.compact contract/src/managed/paydrip",
     "paydrip:test": "vitest run contract/src/test/paydrip.test.ts",
     "preview:wallet": "node scripts/preview-wallet.mjs",
