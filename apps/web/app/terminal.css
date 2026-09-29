@@ -224,3 +224,6 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 1024px) { .topbar__trail { display: none; } .topbar__right { margin-left: auto; } }
 @media (max-width: 600px) { .header-wallet { gap: .4rem; } .header-wallet .topbar__wallet { max-width: 5rem; font-size: .58rem; } .header-wallet__copy { display: none; } .header-wallet__button { padding-inline: .65rem; font-size: .67rem; } .network-pill { padding-inline: .5rem; } }
 @media (max-width: 390px) { .header-wallet .topbar__wallet { max-width: 4.2rem; } .topbar__right { gap: .4rem; } }
+
+.proof-private-input { padding: 1rem; border: 1px solid var(--line); border-radius: .35rem; margin-bottom: 1.2rem; }
+.proof-private-input p { color: var(--ink-soft); font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
