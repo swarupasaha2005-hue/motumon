@@ -40,16 +40,6 @@ export async function connectOneAm(registry) {
   return { api: connected, address: unshieldedAddress, network: 'Preview', capabilities: oneAmCapabilities(connected) };
 }
 
-// Extension errors may contain request data. Only show our own safe messages.
-export function walletConnectionError(error) {
-  const message = error instanceof Error ? error.message : '';
-  if (error instanceof OneAmConnectionError) return error.message;
-  if (/reject|denied|declin|cancel/i.test(message)) return 'Connection was declined. You can connect again when you are ready.';
-  if (/lock/i.test(message)) return 'Unlock 1AM Wallet, then try connecting again.';
-  if (/unavailable|not available/i.test(message)) return '1AM Wallet is unavailable. Open the extension and retry.';
-  return 'Unable to connect to 1AM Wallet. Check the extension and retry.';
-}
-
 
 // Presence is not proof that a wallet method works. Never invoke signing or proving
 // just to probe it, and never infer transaction support from a successful connection.
@@ -67,6 +57,15 @@ export function oneAmCapabilities(api) {
   };
 }
 
+// Extension errors may contain request data. Only show our own safe messages.
+export function walletConnectionError(error) {
+  const message = error instanceof Error ? error.message : '';
+  if (error instanceof OneAmConnectionError) return error.message;
+  if (/reject|denied|declin|cancel/i.test(message)) return 'Connection was declined. You can connect again when you are ready.';
+  if (/lock/i.test(message)) return 'Unlock 1AM Wallet, then try connecting again.';
+  if (/unavailable|not available/i.test(message)) return '1AM Wallet is unavailable. Open the extension and retry.';
+  return 'Unable to connect to 1AM Wallet. Check the extension and retry.';
+}
 
 /** Application-session cleanup: Connector v4 has no disconnect/revoke method. */
 export function createOneAmSession() {
@@ -127,3 +126,10 @@ export function createOneAmSession() {
   };
 }
 
+// Browser identity is not the signer in the existing local operator path.
+export function operatorActionAvailability({ hosted, connected, busy }) {
+  if (hosted) return { enabled: false, reason: 'Circuit calls need the local PayDrip terminal. 1AM connection alone cannot enable this hosted build.' };
+  if (busy) return { enabled: false, reason: 'Wait for the current contract action to finish.' };
+  if (!connected) return { enabled: false, reason: 'Connect the local Preview operator wallet in Network & contract to submit a circuit call.' };
+  return { enabled: true, reason: 'Ready. The local Preview operator signs and submits this call; 1AM is a separate browser session.' };
+}
