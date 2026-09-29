@@ -14,7 +14,20 @@ PayDrip is an experimental Midnight Compact contract for employer-issued private
 
 ## Landing page
 
-Run the static site locally with `npm run web:dev` and open `http://127.0.0.1:5173`. Run `npm run web:check` to check its JavaScript syntax and `npm run web:build` to create `dist/web`. These commands need no frontend dependencies beyond Node.js. The page explains the protocol and demonstrates claim selection with local example data only.
+Run the site and local terminal:
+
+```bash
+npm ci
+npm run paydrip:compile
+docker compose -f compose.preview.yml up -d
+npm run web:dev
+```
+
+Open `http://127.0.0.1:5173` for the landing page and click **Launch App** to open `app/index.html`. The terminal binds to `127.0.0.1`, checks the browser origin and a per-process session token for writes, and reads the public deployment manifest. Its **Connect local wallet** action uses `.secrets/preview-wallet.seed` on that same machine; it never requests or returns the seed. The wallet needs Preview NIGHT registered for DUST generation. Organization actions also require the existing local `.secrets/preview-admin.json`; a connected wallet alone does not grant administrator authorization. Employee claims need an independently held employee secret and private record opening. Run an employee terminal on the employee's own machine, not on an issuer-controlled server. The local service and proof server receive private inputs transiently during a claim; nothing is saved to browser storage.
+
+The issuer must download the private record package **before** registration and deliver it through an authenticated private channel. The employee shares only their derived pseudonym with the issuer. Verifiers issue a fresh context and look up the finalized claim receipt by that context. The contract does not bind a context to a named verifier. See [the terminal's action inventory](docs/WEB_TERMINAL.md) for exact data and trust boundaries.
+
+`npm run web:typecheck`, `npm run web:check`, `npm run web:test`, and `npm run web:build` validate the web code. `dist/web` is a static asset build; contract operations require the local Node service started by `web:dev` and are not available from static hosting alone.
 
 ## Public and private model
 
