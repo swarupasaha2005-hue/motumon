@@ -30,7 +30,7 @@
         <header class="topbar">
           <button class="mobile-menu" type="button" id="menu-toggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><span></span><span></span></button>
           <div class="topbar__trail">PAYDRIP <span>/</span> <strong id="page-trail">OVERVIEW</strong></div>
-          <div class="topbar__right"><span class="network-pill"><i id="network-light"></i> PREVIEW</span><span class="topbar__wallet" id="top-wallet">Wallet disconnected</span></div>
+          <div class="topbar__right"><span class="network-pill"><i id="network-light"></i> PREVIEW</span><div class="header-wallet" aria-label="1AM wallet session"><span class="topbar__wallet" id="top-wallet" role="status" aria-live="polite">Not connected</span><button id="connect-oneam-header" class="header-wallet__button" type="button">Connect Wallet</button><button id="copy-oneam" class="header-wallet__copy" type="button" aria-label="Copy connected 1AM Preview address" hidden>Copy</button><button id="disconnect-oneam-header" class="header-wallet__button header-wallet__button--secondary" type="button" hidden>Disconnect</button></div></div>
         </header>
 
         <main id="workspace" class="workspace">
