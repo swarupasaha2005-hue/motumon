@@ -96,6 +96,40 @@ PayDrip uses **1AM Wallet** on **Midnight Preview**. Click **Connect Wallet** in
 
 PayDrip detects whether balancing, submission, public-key, configuration, data-signing, and delegated-proving methods are exposed by the connected connector. **Method presence is not a successful transaction test.** 1AM advertises DApp Connector v4, but its transaction methods have not been exercised by this app. The browser session currently supplies public identity/network information; it does not sign PayDrip circuit calls.
 
+### Transaction executor and hosted limitations
+
+The current real circuit path remains:
+
+```text
+Browser → loopback PayDrip service → local Preview operator wallet
+        → Midnight.js → local proof server → PayDrip on Preview
+```
+
+The local operator uses the existing ignored wallet file on the user's machine. It is distinct from the connected 1AM account. Circuit buttons require this operator connection and prevent concurrent calls. Pure navigation and the 1AM connection work independently. A connected browser wallet does not confer issuer/employee authorization: the Compact contract checks the relevant private secret.
+
+The production static build includes the public Preview deployment manifest and Connect Wallet controls. Contract calls and receipt lookup remain disabled there because the implementation needs the loopback service, filesystem ZK artifacts, and local proof server. It does not send private payroll inputs to Vercel. Removing this restriction requires a browser Midnight.js provider integration, not a UI flag change. The landing page has not been redesigned.
+
+### Income eligibility and privacy
+
+PayDrip allows the holder of an authorized private payroll record and matching employee secret to prove that the record satisfies a published monthly income tier without putting the exact salary in public ledger state. Supported tiers are **$3,000**, **$5,000**, and **$10,000**, represented in USD cents by the contract.
+
+**Public:** organization/deployment context, payroll epoch, record commitment, revocation state, claim context, selected tier, linked record handle, and transaction metadata.
+
+**Private inputs:** exact monthly salary, employee secret, and commitment randomness. The local service and local proof server receive these inputs while checking/proving; this is a local trust boundary, not privacy from the issuer or prover. Browser inputs remain in memory, with explicit private-file downloads for backup and delivery. Salary can be revealed only in a marked local input panel, never copied from public results. No browser storage or analytics is used for these values.
+
+Results display transaction/block identifiers only if returned by the successful generated circuit call. No proof or transaction success is simulated. Repeated tier requests can reveal a salary band; record handles link claims; the issuer can attest inaccurate payroll data; historical membership is not current employment; PayDrip does not transfer salaries or prove payment.
+
+### Demo sequence
+
+1. Open PayDrip, Launch App, and connect 1AM through the header. Show the real address and Preview label.
+2. For a real circuit demonstration, run `npm run web:dev` locally with generated artifacts and the local proof server running. In Network & contract, connect the **local Preview operator**, explicitly identifying it as the transaction executor.
+3. In My payroll, import a legitimately registered private record and matching identity. Use clearly identified demo payroll data for recording; never record employee secrets, private files, or real employee salary.
+4. In Create a claim, optionally reveal the demo salary in the private input panel, choose a supported tier, and supply a fresh verifier context. Review Privacy Preview.
+5. Generate and submit the claim. Wait for the actual circuit result; show its Preview contract, transaction and block if provided. Check the accepted public receipt under Verify a claim. Exact salary is absent from the public result.
+6. Disconnect 1AM and show that the app session/private inputs are cleared. This does not stop an already submitted local-operator transaction.
+
+The hosted circuit path, real 1AM approval, real terminal network call, public payload inspection, and demo video still require runtime evidence. Do not present static illustrations or passing off-chain tests as proof of those steps.
+
 ## Further work
 
-Exercise every terminal circuit on Preview with separate issuer and employee local wallets, inspect generated public payloads and claim linkage, and independently review the local service. Add authenticated employer-to-employee opening delivery and wire the browser wallet into the contract transaction providers before any remotely hosted payroll application. The 1AM connection currently provides only public wallet identity and network status. Validate the current Rise In program requirements before submission.
+Exercise terminal circuits on Preview and inspect actual transaction/public state. Wire browser-side Midnight.js providers to tested 1AM transaction capabilities before enabling hosted user transactions. Add authenticated employer-to-employee opening delivery. Validate the current submission's wallet/network acceptance separately from application behavior.
