@@ -1,6 +1,6 @@
 # PayDrip — V1 protocol architecture
 
-**Status:** design plus first implementation, 29 September 2026. Six circuits compile and pass focused off-chain tests. The constructor was deployed to Preview at `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c` in transaction `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`, block `1069550`. A separate indexer query returned contract state. Payroll circuit calls, transaction disclosure, and a web frontend still need Preview validation.
+**Status:** design plus first implementation, 29 September 2026. Six circuits compile and pass focused off-chain tests. The constructor was deployed to Preview at `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c` in transaction `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`, block `1069550`. A separate indexer query returned contract state. A local web terminal is now wired to the circuits, but payroll circuit calls and transaction disclosure still need live Preview validation.
 
 **Product statement:** Payroll belongs on-chain. Salaries don't. V1 proves an employer-issued payroll record and an income threshold. It does **not** transfer compensation or prove that a salary was paid.
 
@@ -87,7 +87,7 @@ The interface must display the exact tier and verifier before proving and say �
 
 **Organization:** Dashboard (epoch/status counts), Payroll (open/close and register), Contributors (private local labels, never sent to public state), Proof Requests (requests issued/received), History/Epochs (public lifecycle and revocations). **Employee:** My Payroll (locally decrypted records), period, issuer and status, “Prove employment,” “Prove income eligibility,” consent preview, proof receipt. **Verifier:** request builder and status page with issuer, epoch, tier, context, finalized verification result, and “Not disclosed: exact salary, bonus, employee secret.” Responsive layout with clear privacy annotations and no fake private data in a public API.
 
-Repository root is `PayDrip/`. It currently contains the PayDrip Compact source and tests in `contract/`, Preview wallet and deployment scripts in `scripts/`, and this architecture document. A PayDrip API, employee client, and web app remain future work.
+Repository root is `PayDrip/`. It contains the PayDrip Compact source and tests in `contract/`, Preview wallet and deployment scripts in `scripts/`, and a local web terminal in `apps/web/`. The terminal's action and trust boundaries are documented in [WEB_TERMINAL.md](WEB_TERMINAL.md). Authenticated private opening delivery and a remotely hosted wallet-connected application remain future work.
 
 ## 17–18. Implementation phases and test matrix
 
