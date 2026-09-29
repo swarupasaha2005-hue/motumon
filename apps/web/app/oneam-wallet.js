@@ -8,7 +8,7 @@
 /** @param {Record<string, InitialWallet> | undefined} registry */
 export function findOneAm(registry) {
   const matches = Object.values(registry ?? {}).filter((wallet) =>
-    wallet && (/^1am(?: wallet)?$/i.test(wallet.name?.trim() ?? '') || /^(?:[a-z0-9-]+\.)*(?:1am|oneam)\.(?:xyz|com)$/i.test(wallet.rdns?.trim() ?? ''))
+    wallet && (/^(?:1am|oneam)(?: wallet)?$/i.test(wallet.name?.trim() ?? '') || /^(?:[a-z0-9-]+\.)*(?:1am|oneam)\.(?:xyz|com)$/i.test(wallet.rdns?.trim() ?? ''))
   );
   if (matches.length > 1) throw new Error('Multiple 1AM wallet connectors were detected. Disable duplicate or untrusted wallet extensions and retry.');
   return matches[0] ?? null;
