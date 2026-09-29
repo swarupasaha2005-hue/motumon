@@ -29,6 +29,10 @@ The issuer must download the private record package **before** registration and 
 
 `npm run web:typecheck`, `npm run web:check`, `npm run web:test`, and `npm run web:build` validate the web code. `dist/web` is a static asset build; contract operations require the local Node service started by `web:dev` and are not available from static hosting alone.
 
+## Vercel hosting
+
+`vercel.json` builds and serves `dist/web`. The landing page and terminal interface can be hosted on Vercel, but the hosted terminal is clearly labeled as an interface preview and disables contract actions. The local wallet, administrator vault, proof server, and private record operations are **not** deployed to Vercel. To make payroll calls, run `npm run web:dev` and the proof server on a machine you control. `.vercelignore` excludes local secrets and protocol server code from CLI uploads.
+
 ## Public and private model
 
 The ledger exposes organization and deployment-domain identifiers, admin authenticator, USD unit, epoch status, randomized record commitments, revocations, and successful claim receipts. Claim receipts expose the associated record handle, so claims for the same record can be linked. Exact salary, employee secret, and commitment randomness remain private inputs. The employer already knows the salary it issues. The actual generated call payload and disclosure surface require a network inspection before making stronger privacy claims.

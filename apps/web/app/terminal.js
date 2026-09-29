@@ -4,6 +4,7 @@ const input = (id) => /** @type {HTMLInputElement} */ ($(id));
 const form = (id) => /** @type {HTMLFormElement} */ ($(id));
 const button = (id) => /** @type {HTMLButtonElement} */ ($(id));
 const hex64 = /^[0-9a-f]{64}$/i;
+const hostedStatic = !['127.0.0.1', 'localhost'].includes(window.location.hostname);
 const pages = {
   overview: ['Overview', 'A local view of the deployed payroll protocol.'],
   payroll: ['Payroll periods', 'Open and close periods authorized by the administrator secret.'],
@@ -59,6 +60,7 @@ function dollarsToMinor(value) {
 }
 
 async function api(path, options = {}) {
+  if (hostedStatic) throw new Error('Contract actions require the local PayDrip service. Run npm run web:dev on your own machine.');
   const headers = { ...(options.headers || {}) };
   if (options.method === 'POST') {
     headers['Content-Type'] = 'application/json';
@@ -409,6 +411,27 @@ function bindVerifier() {
 
 async function init() {
   bindNavigation(); bindWallet(); bindOrganization(); bindEmployee(); bindVerifier();
+  if (hostedStatic) {
+    const caption = document.querySelector('.sidebar__caption');
+    if (caption) caption.textContent = 'HOSTED INTERFACE PREVIEW';
+    $('top-wallet').textContent = 'Local wallet required';
+    $('overview-wallet').textContent = 'Local only';
+    $('overview-contract').textContent = 'See deployment documentation';
+    $('overview-network').textContent = 'Live state requires the local service';
+    $('indexer-health').textContent = 'Local service required';
+    $('node-health').textContent = 'Local service required';
+    $('proof-health').textContent = 'Local service required';
+    $('network-contract').textContent = 'Available through the local terminal';
+    $('wallet-address').textContent = 'Local wallet required';
+    $('admin-available').textContent = 'Local only';
+    $('epoch-list').replaceChildren(element('div', 'empty-state', 'Public period state is available through the local terminal.'));
+    $('record-list').replaceChildren(element('div', 'empty-state', 'Public record handles are available through the local terminal.'));
+    for (const action of document.querySelectorAll('form button[type="submit"], #register-record, #connect-wallet, #disconnect-wallet, #refresh-state')) {
+      /** @type {HTMLButtonElement} */ (action).disabled = true;
+    }
+    notice('Hosted interface preview: payroll transactions and verification require the local PayDrip service. This site does not submit contract actions.', 'error');
+    return;
+  }
   try { app.token = (await api('session')).token; await refresh(); }
   catch (error) { notice(`Local terminal unavailable: ${error.message}`, 'error'); }
 }

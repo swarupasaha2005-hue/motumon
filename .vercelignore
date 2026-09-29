@@ -1,0 +1,12 @@
+.secrets/
+.env*
+node_modules/
+dist/
+contract/
+scripts/
+docs/
+apps/web/server/
+apps/web/dev-server.mjs
+apps/web/*.test.mjs
+compose.preview.yml
+deployment.preview.json
