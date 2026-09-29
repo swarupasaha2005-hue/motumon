@@ -142,6 +142,21 @@
         </div>
       </section>
 
+      <section class="threshold-section page-shell section-pad" id="proof" aria-labelledby="proof-title">
+        <div class="section-heading"><span class="eyebrow">05 / INCOME-TIER PROOF</span><span class="section-heading__rule"></span><span class="eyebrow">FIXED USD MONTHLY TIERS</span></div>
+        <div class="threshold-section__intro" data-reveal><h2 id="proof-title">Prove enough.<br /><span>Reveal nothing more.</span></h2><p>Choose one of the three tiers supported by the contract. The example salary stays in the private view.</p></div>
+        <div class="proof-demo" data-proof-demo data-reveal>
+          <div class="proof-demo__private"><span class="eyebrow">PRIVATE EXAMPLE / EMPLOYEE VIEW</span><div class="proof-demo__salary">$5,000<span>/ month</span></div><p>This sample amount is never sent to a verifier by this page.</p><div class="proof-demo__underbar"><span>Private record opening</span><span class="proof-demo__redaction" aria-hidden="true"></span></div></div>
+          <div class="proof-demo__center"><span class="proof-demo__arrow" aria-hidden="true">→</span><span>CHOOSE A CLAIM</span></div>
+          <div class="proof-demo__public"><span class="eyebrow">REQUESTED INCOME TIER</span><div class="tier-buttons" role="group" aria-label="Choose a monthly income threshold"><button type="button" class="is-active" data-tier="3000" aria-pressed="true">$3,000</button><button type="button" data-tier="5000" aria-pressed="false">$5,000</button><button type="button" data-tier="10000" aria-pressed="false">$10,000</button></div><div class="proof-demo__result" aria-live="polite"><span class="proof-demo__result-icon" data-proof-icon>✓</span><div><span data-proof-label>QUALIFYING CLAIM</span><strong data-proof-result>Income ≥ $3,000</strong></div></div><div class="proof-demo__verifier" data-proof-verifier>Verifier sees the qualifying tier. The $5,000 amount stays private.</div></div>
+        </div>
+        <p class="section-footnote">Illustrative only; no wallet is connected and no proof is generated. A below-threshold request cannot produce a successful claim. Repeated tier questions can reveal a salary band.</p>
+      </section>
+
+      <section class="model-section section-pad" id="model" aria-labelledby="model-title">
+        <div class="page-shell"><div class="section-heading"><span class="eyebrow">06 / PRIVACY MODEL</span><span class="section-heading__rule"></span><span class="eyebrow">A PRECISE BOUNDARY</span></div><div class="model-section__heading" data-reveal><h2 id="model-title">Privacy lives in<br />the protocol.</h2><p>The ledger keeps the state needed to verify a claim. Sensitive record openings remain private inputs.</p></div><div class="model-grid"><div class="model-card" data-reveal><div class="model-card__head"><span class="model-card__symbol" aria-hidden="true">↗</span><span>WHAT CAN BE PUBLIC</span></div><ul><li>Organization and deployment domain IDs</li><li>Payroll epoch and lifecycle status</li><li>Record commitment and revocation handles</li><li>Claim context, tier, and linked record handle</li></ul><p>Public handles and transactions can reveal timing and relationships.</p></div><div class="model-card model-card--private" data-reveal><div class="model-card__head"><span class="model-card__symbol" aria-hidden="true">◐</span><span>WHAT STAYS PRIVATE</span></div><ul><li>Exact monthly base salary</li><li>Employee secret and record opening</li><li>Commitment randomness</li><li>Other values inside the private record</li></ul><p>The issuer knows what it records. PayDrip does not hide compensation from that issuer.</p></div></div></div>
+      </section>
+
     </main>
     <script type="module" src="./src/main.js"></script>
   </body>
