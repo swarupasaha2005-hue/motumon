@@ -1,6 +1,6 @@
 const header = document.querySelector('[data-header]');
 const menuButton = document.querySelector('[data-menu-button]');
-const mobileNav = document.querySelector('[data-mobile-nav]');
+const mobileNav = /** @type {HTMLElement | null} */ (document.querySelector('[data-mobile-nav]'));
 
 const updateHeader = () => header?.classList.toggle('is-scrolled', window.scrollY > 12);
 updateHeader();
@@ -41,7 +41,7 @@ if (reducedMotion || !('IntersectionObserver' in window)) {
   revealItems.forEach((item) => observer.observe(item));
 }
 
-const privacyWindow = document.querySelector('[data-privacy-window]');
+const privacyWindow = /** @type {HTMLElement | null} */ (document.querySelector('[data-privacy-window]'));
 const privacyToggle = document.querySelector('[data-privacy-toggle]');
 privacyToggle?.addEventListener('click', () => {
   const focusVerifier = privacyWindow?.dataset.scope !== 'verifier';
@@ -50,7 +50,7 @@ privacyToggle?.addEventListener('click', () => {
   privacyToggle.innerHTML = `${focusVerifier ? 'Show both views' : 'Focus on verifier view'} <span aria-hidden="true">↗</span>`;
 });
 
-const proofDemo = document.querySelector('[data-proof-demo]');
+const proofDemo = /** @type {HTMLElement | null} */ (document.querySelector('[data-proof-demo]'));
 const tierButtons = document.querySelectorAll('[data-tier]');
 const proofIcon = document.querySelector('[data-proof-icon]');
 const proofLabel = document.querySelector('[data-proof-label]');
@@ -58,7 +58,8 @@ const proofResult = document.querySelector('[data-proof-result]');
 const proofVerifier = document.querySelector('[data-proof-verifier]');
 const sampleMonthlySalary = 5000;
 
-tierButtons.forEach((button) => button.addEventListener('click', () => {
+tierButtons.forEach((item) => item.addEventListener('click', () => {
+  const button = /** @type {HTMLElement} */ (item);
   const tier = Number(button.dataset.tier);
   const qualifies = sampleMonthlySalary >= tier;
   tierButtons.forEach((item) => {
