@@ -7,9 +7,9 @@
   "scripts": {
     "web:dev": "node apps/web/dev-server.mjs",
     "web:build": "node apps/web/build.mjs",
-    "web:check": "node --check apps/web/src/main.js && node --check apps/web/app/terminal.js && node --check apps/web/server/preview-service.mjs && node --check apps/web/server/api.mjs && node --check apps/web/dev-server.mjs && node --check apps/web/build.mjs",
+    "web:check": "node --check apps/web/src/main.js && node --check apps/web/app/terminal.js && node --check apps/web/app/oneam-wallet.js && node --check apps/web/server/preview-service.mjs && node --check apps/web/server/api.mjs && node --check apps/web/dev-server.mjs && node --check apps/web/build.mjs",
     "web:typecheck": "tsc -p tsconfig.web.json",
-    "web:test": "vitest run apps/web/server/*.test.mjs",
+    "web:test": "vitest run apps/web/server/*.test.mjs apps/web/app/*.test.mjs",
     "paydrip:compile": "compact compile contract/src/paydrip.compact contract/src/managed/paydrip",
     "paydrip:test": "vitest run contract/src/test/paydrip.test.ts",
     "preview:wallet": "node scripts/preview-wallet.mjs",
