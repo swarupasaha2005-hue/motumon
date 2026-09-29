@@ -7,7 +7,7 @@ import { handleApi } from './server/api.mjs';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 5173);
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
 createServer(async (request, response) => {
   const origin = `http://${host}:${port}`;
@@ -19,6 +19,11 @@ createServer(async (request, response) => {
   if (await handleApi(request, response, pathname, origin)) return;
   if (pathname === '/app') {
     response.writeHead(308, { location: '/app/', 'cache-control': 'no-store' }).end();
+    return;
+  }
+  if (pathname === '/deployment.preview.json') {
+    const manifest = await readFile(path.resolve(root, '../../deployment.preview.json'));
+    response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(manifest);
     return;
   }
   const relativePath = pathname === '/' ? 'index.html'
