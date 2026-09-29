@@ -1,3 +1,5 @@
+import { connectOneAm } from './oneam-wallet.js';
+
 const $ = (id) => document.getElementById(id);
 const field = (id) => /** @type {HTMLInputElement | HTMLSelectElement} */ ($(id));
 const input = (id) => /** @type {HTMLInputElement} */ ($(id));
@@ -14,7 +16,7 @@ const pages = {
   verify: ['Verify a claim', 'Read an accepted claim receipt from the Preview ledger.'],
   network: ['Network & contract', 'Inspect the deployed contract and local services.'],
 };
-const app = { token: null, meta: null, ledger: null, wallet: null, opening: null,
+const app = { token: null, meta: null, ledger: null, wallet: null, oneAm: null, opening: null,
   employeeSecret: null, preparedOpening: null, identity: null, currentPage: 'overview', busy: false };
 
 function notice(message, tone = 'neutral') {
@@ -98,11 +100,27 @@ function navigate(page) {
 
 function renderWallet() {
   const connected = !!app.wallet?.connected;
-  $('top-wallet').textContent = connected ? short(app.wallet.address, 17, 9) : app.wallet ? 'Local wallet disconnected' : 'Wallet status unavailable';
   $('overview-wallet').textContent = connected ? 'Connected' : app.wallet ? 'Disconnected' : 'Unknown';
   $('wallet-address').textContent = connected ? app.wallet.address : app.wallet ? 'Disconnected' : 'Unavailable';
   $('connect-wallet').hidden = connected;
   $('disconnect-wallet').hidden = !connected;
+  renderTopWallet();
+}
+
+function renderTopWallet() {
+  $('top-wallet').textContent = app.oneAm
+    ? `1AM ${short(app.oneAm.address, 12, 6)}`
+    : app.wallet?.connected ? `Local ${short(app.wallet.address, 12, 6)}` : 'Wallet disconnected';
+}
+
+function renderOneAm() {
+  $('overview-oneam').textContent = app.oneAm ? 'Connected' : 'Disconnected';
+  $('oneam-status').textContent = app.oneAm ? 'Connected to Preview' : 'Disconnected';
+  $('oneam-address').textContent = app.oneAm?.address ?? 'Not connected';
+  $('connect-oneam').hidden = !!app.oneAm;
+  $('connect-oneam-overview').hidden = !!app.oneAm;
+  $('disconnect-oneam').hidden = !app.oneAm;
+  renderTopWallet();
 }
 
 function renderMeta() {
@@ -251,6 +269,44 @@ function bindNavigation() {
 }
 
 function bindWallet() {
+  const connectBrowserWallet = async () => {
+    button('connect-oneam').disabled = true;
+    button('connect-oneam-overview').disabled = true;
+    notice('Waiting for 1AM to approve a Preview connection.');
+    try {
+      app.oneAm = await connectOneAm(/** @type {Window & {midnight?: Record<string, import('./oneam-wallet.js').InitialWallet>}} */ (window).midnight);
+      renderOneAm();
+      notice('1AM connected to Preview. Payroll transactions still use the separate local wallet.', 'success');
+    } catch (error) {
+      notice(error instanceof Error ? error.message : '1AM could not connect. Check the wallet extension and retry.', 'error');
+    } finally { button('connect-oneam').disabled = false; button('connect-oneam-overview').disabled = false; }
+  };
+  $('connect-oneam').addEventListener('click', connectBrowserWallet);
+  $('connect-oneam-overview').addEventListener('click', connectBrowserWallet);
+  $('disconnect-oneam').addEventListener('click', () => {
+    app.oneAm = null;
+    renderOneAm();
+    notice('1AM cleared from this page. Revoke site access in 1AM if you want to remove the extension permission.', 'success');
+  });
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden || !app.oneAm) return;
+    const session = app.oneAm;
+    try {
+      const status = await session.api.getConnectionStatus();
+      const address = await session.api.getUnshieldedAddress();
+      if (app.oneAm !== session) return;
+      if (status.status !== 'connected' || status.networkId !== 'preview' || address.unshieldedAddress !== session.address) {
+        app.oneAm = null;
+        renderOneAm();
+        notice('The 1AM account or network changed. Connect again to use the current Preview account.', 'error');
+      }
+    } catch {
+      if (app.oneAm !== session) return;
+      app.oneAm = null;
+      renderOneAm();
+      notice('The 1AM connection is no longer available. Connect again.', 'error');
+    }
+  });
   $('connect-wallet').addEventListener('click', async () => {
     button('connect-wallet').disabled = true;
     notice('Connecting the existing local Preview wallet. Initial synchronization can take time.');
@@ -411,10 +467,10 @@ function bindVerifier() {
 
 async function init() {
   bindNavigation(); bindWallet(); bindOrganization(); bindEmployee(); bindVerifier();
+  renderOneAm();
   if (hostedStatic) {
     const caption = document.querySelector('.sidebar__caption');
     if (caption) caption.textContent = 'HOSTED INTERFACE PREVIEW';
-    $('top-wallet').textContent = 'Local wallet required';
     $('overview-wallet').textContent = 'Local only';
     $('overview-contract').textContent = 'See deployment documentation';
     $('overview-network').textContent = 'Live state requires the local service';
