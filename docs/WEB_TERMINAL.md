@@ -1,6 +1,6 @@
 # PayDrip local web terminal
 
-The application at `/app` is a **local Preview terminal**. It uses the deployed PayDrip contract address from `deployment.preview.json`, the repository's generated Compact bindings, Midnight.js 4.1.1, a local proof server, and a local Preview wallet. It does not turn the landing page's illustrative product cards into fabricated accounts or records.
+The application at `/app` is a **Preview terminal**. Its contract actions use the deployed PayDrip contract address from `deployment.preview.json`, the repository's generated Compact bindings, Midnight.js 4.1.1, a local proof server, and a local Preview wallet. Its separate 1AM browser connection requests Preview access and reads a public unshielded address. It does not turn the landing page's illustrative product cards into fabricated accounts or records.
 
 ## Contract-to-product inventory
 
@@ -27,4 +27,4 @@ The generated TypeScript/JavaScript binding is `contract/src/managed/paydrip/con
 
 The private record and employee secret remain in browser memory for the session and are sent only to the loopback service for checking or proving. The local service and local proof server see private inputs transiently. Do not run this terminal on an issuer-controlled or shared remote host for employee claims. No salary, randomness, employee secret, wallet seed, or raw Midnight.js call result is sent in a public-state response or logged by the application. The issuer necessarily knows the salary it commits. Public commitments, claim contexts, transaction metadata, and linked record handles can correlate activity; repeated tiers can reveal a salary band.
 
-This terminal's SDK call path is **wired but not yet confirmed by a live Preview payroll transaction**. The repository's existing Preview evidence verifies the constructor deployment and indexed contract state. Static `dist/web` assets alone do not provide the local API. A future remotely hosted product needs an independently reviewed wallet connector, private record delivery, and deployment model.
+This terminal's SDK call path is **wired but not yet confirmed by a live Preview payroll transaction**. The repository's existing Preview evidence verifies the constructor deployment and indexed contract state. Static `dist/web` assets allow a 1AM connection but do not provide the local API or submit payroll transactions. The 1AM connection does not sign or fund contract calls. A future remotely hosted product needs an independently reviewed browser-wallet transaction provider, private record delivery, and deployment model.
