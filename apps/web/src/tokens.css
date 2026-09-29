@@ -1,0 +1,34 @@
+:root {
+  --paper: #f5f3ee;
+  --paper-deep: #eae8e1;
+  --paper-light: #fbfaf7;
+  --ink: #171a18;
+  --ink-soft: #4b504b;
+  --muted: #777b74;
+  --line: #d7d8d0;
+  --line-dark: #444a45;
+  --signal: #244a73;
+  --signal-deep: #173654;
+  --signal-on-dark: #a9c8eb;
+  --dark: #1c211e;
+  --dark-card: #272d29;
+  --success: #819b78;
+  --display: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --body: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --space-1: .5rem;
+  --space-2: .75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+  --space-7: 4rem;
+  --space-8: 6rem;
+  --space-9: 8rem;
+  --space-10: 10rem;
+  --radius-sm: .625rem;
+  --radius-md: 1.125rem;
+  --radius-lg: 1.75rem;
+  --ease-out: cubic-bezier(.2, .75, .2, 1);
+  --ease-inout: cubic-bezier(.65, 0, .25, 1);
+}
