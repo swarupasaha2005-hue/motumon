@@ -11,6 +11,7 @@
   },
   "include": [
     "apps/web/app/terminal.js",
+    "apps/web/app/oneam-wallet.js",
     "apps/web/src/main.js",
     "apps/web/server/preview-service.mjs",
     "apps/web/server/api.mjs",
