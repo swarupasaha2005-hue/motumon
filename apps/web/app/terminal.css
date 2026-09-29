@@ -214,3 +214,13 @@ a { color: inherit; text-decoration: none; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   html { scroll-behavior: auto; }
 }
+
+/* Persistent wallet controls use the terminal's existing navy/neutral palette. */
+.header-wallet { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.header-wallet__button, .header-wallet__copy { min-height: 2.75rem; padding: .6rem .8rem; border: 1px solid var(--signal); border-radius: .35rem; background: var(--signal); color: #fff; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.header-wallet__button--secondary, .header-wallet__copy { background: transparent; color: var(--signal); }
+.header-wallet__copy { padding-inline: .55rem; }
+@media (max-width: 1280px) { .topbar__right { gap: .65rem; } .header-wallet .topbar__wallet { max-width: 11rem; } }
+@media (max-width: 1024px) { .topbar__trail { display: none; } .topbar__right { margin-left: auto; } }
+@media (max-width: 600px) { .header-wallet { gap: .4rem; } .header-wallet .topbar__wallet { max-width: 5rem; font-size: .58rem; } .header-wallet__copy { display: none; } .header-wallet__button { padding-inline: .65rem; font-size: .67rem; } .network-pill { padding-inline: .5rem; } }
+@media (max-width: 390px) { .header-wallet .topbar__wallet { max-width: 4.2rem; } .topbar__right { gap: .4rem; } }
