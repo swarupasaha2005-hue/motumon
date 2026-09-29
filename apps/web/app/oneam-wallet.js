@@ -3,7 +3,7 @@
 // use the separate local PayDrip service and do not use the browser wallet for signing.
 
 /** @typedef {{name?: string, rdns?: string, apiVersion?: string, connect?: (networkId: string) => Promise<ConnectedWallet>}} InitialWallet */
-/** @typedef {{getConnectionStatus?: () => Promise<{status: string, networkId?: string}>, getUnshieldedAddress?: () => Promise<{unshieldedAddress?: string}>}} ConnectedWallet */
+/** @typedef {{getConnectionStatus?: () => Promise<{status: string, networkId?: string}>, getUnshieldedAddress?: () => Promise<{unshieldedAddress?: string}>, getUnshieldedBalances?: Function, getShieldedAddresses?: Function, getConfiguration?: Function, signData?: Function, balanceUnsealedTransaction?: Function, submitTransaction?: Function, getProvingProvider?: Function}} ConnectedWallet */
 
 class OneAmConnectionError extends Error {}
 
@@ -37,7 +37,7 @@ export async function connectOneAm(registry) {
   if (typeof unshieldedAddress !== 'string' || !/^mn_addr_preview1[0-9a-z]+$/.test(unshieldedAddress)) {
     throw new OneAmConnectionError('1AM did not return a valid Preview unshielded address.');
   }
-  return { api: connected, address: unshieldedAddress, network: 'Preview' };
+  return { api: connected, address: unshieldedAddress, network: 'Preview', capabilities: oneAmCapabilities(connected) };
 }
 
 // Extension errors may contain request data. Only show our own safe messages.
@@ -48,5 +48,22 @@ export function walletConnectionError(error) {
   if (/lock/i.test(message)) return 'Unlock 1AM Wallet, then try connecting again.';
   if (/unavailable|not available/i.test(message)) return '1AM Wallet is unavailable. Open the extension and retry.';
   return 'Unable to connect to 1AM Wallet. Check the extension and retry.';
+}
+
+
+// Presence is not proof that a wallet method works. Never invoke signing or proving
+// just to probe it, and never infer transaction support from a successful connection.
+/** @param {ConnectedWallet} api */
+export function oneAmCapabilities(api) {
+  const has = (name) => typeof api?.[name] === 'function';
+  return {
+    balances: has('getUnshieldedBalances'),
+    publicKeys: has('getShieldedAddresses'),
+    configuration: has('getConfiguration'),
+    dataSigning: has('signData'),
+    balancing: has('balanceUnsealedTransaction'),
+    submission: has('submitTransaction'),
+    proving: has('getProvingProvider'),
+  };
 }
 
