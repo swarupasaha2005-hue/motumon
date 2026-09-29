@@ -8,5 +8,5 @@ docs/
 apps/web/server/
 apps/web/dev-server.mjs
 apps/web/*.test.mjs
+apps/web/app/*.test.mjs
 compose.preview.yml
-deployment.preview.json
