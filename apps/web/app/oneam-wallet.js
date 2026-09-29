@@ -67,3 +67,63 @@ export function oneAmCapabilities(api) {
   };
 }
 
+
+/** Application-session cleanup: Connector v4 has no disconnect/revoke method. */
+export function createOneAmSession() {
+  /** @type {Awaited<ReturnType<typeof connectOneAm>> | null} */
+  let session = null;
+  let generation = 0;
+  let pending = false;
+  /** @type {(() => void) | null} */
+  let cancel = null;
+  return {
+    get session() { return session; },
+    get pending() { return pending; },
+    /** @param {Record<string, InitialWallet> | undefined} registry */
+    async connect(registry, timeoutMs = 60_000) {
+      if (pending) throw new OneAmConnectionError('A wallet connection is already in progress.');
+      if (session) return session;
+      const attempt = ++generation;
+      pending = true;
+      let timer;
+      try {
+        const interruption = new Promise((_, reject) => {
+          cancel = () => reject(new OneAmConnectionError('Wallet connection was cancelled.'));
+          timer = setTimeout(() => reject(new OneAmConnectionError('The 1AM connection timed out. Open the extension and retry.')), timeoutMs);
+        });
+        const connected = await Promise.race([connectOneAm(registry), interruption]);
+        if (attempt !== generation) throw new OneAmConnectionError('Wallet connection was cancelled.');
+        session = /** @type {Awaited<ReturnType<typeof connectOneAm>>} */ (connected);
+        return session;
+      } finally {
+        clearTimeout(timer);
+        if (attempt === generation) { pending = false; cancel = null; }
+      }
+    },
+    disconnect() {
+      ++generation;
+      cancel?.();
+      cancel = null;
+      pending = false;
+      session = null;
+    },
+    async refresh() {
+      const current = session;
+      if (!current) return false;
+      try {
+        const status = await current.api.getConnectionStatus();
+        const address = await current.api.getUnshieldedAddress();
+        if (current !== session) return false;
+        if (status.status !== 'connected' || status.networkId !== 'preview' || address.unshieldedAddress !== current.address) {
+          this.disconnect();
+          return false;
+        }
+        return true;
+      } catch {
+        if (current === session) this.disconnect();
+        return false;
+      }
+    },
+  };
+}
+
