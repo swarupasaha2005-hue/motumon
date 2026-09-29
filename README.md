@@ -9,7 +9,7 @@ PayDrip is an experimental Midnight Compact contract for employer-issued private
 - **Implemented locally:** six Compact circuits in `contract/src/paydrip.compact` and focused off-chain tests.
 - **Compiled/tested:** run the commands below to reproduce on your machine. Generated `managed/paydrip` artifacts are ignored by Git and must be generated locally.
 - **Preview deployment:** completed on 2026-09-29. The contract address and independent indexer check are recorded below.
-- **Web app:** planned. The copied bboard packages still present in the repository are not PayDrip product code and must not be presented as such.
+- **Web app:** planned; no PayDrip frontend is implemented in this repository.
 
 ## Public and private model
 
@@ -21,17 +21,18 @@ The ledger exposes organization and deployment-domain identifiers, admin authent
 
 ## Prerequisites
 
-- Node.js 22 or later and npm; this repo's template declares Node.js 24.11.1 or later.
+- Node.js 24.11.1 or later and npm.
 - [Compact devtools and compiler](https://docs.midnight.network/relnotes/support-matrix): checked with devtools 0.5.1 and compiler 0.31.1.
 - Docker with enough disk space for the proof server and its initial proving-key downloads.
 - A funded **Preview** NIGHT wallet; NIGHT must be registered for DUST generation before deployment. See the [official funding guide](https://docs.midnight.network/guides/acquire-tokens).
 
 ## Exact Preview commands
 
-From a terminal on this computer:
+From a terminal after cloning the repository:
 
 ```bash
-cd '/Users/swarupasaha/Projects/Payroll Midnight/PayDrip'
+git clone https://github.com/swarupasaha2005-hue/motumon.git PayDrip
+cd PayDrip
 npm ci
 npm run paydrip:compile
 npm run paydrip:test
@@ -41,7 +42,6 @@ npm run preview:wallet
 Back up the generated seed securely, then fund the printed **unshielded Preview address** at the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/). After the faucet transfer arrives, continue:
 
 ```bash
-cd '/Users/swarupasaha/Projects/Payroll Midnight/PayDrip'
 docker compose -f compose.preview.yml up -d
 until curl -fsS http://127.0.0.1:6300/health; do sleep 5; done
 npm run preview:status
@@ -68,4 +68,4 @@ docker compose -f compose.preview.yml down
 
 ## Further work
 
-Replace the leftover bboard packages with a PayDrip API, secure employee opening delivery, and a real privacy-first web app. Review the generated public payloads and claim linkage on Preview. Validate the current Rise In program requirements before submission.
+Build a PayDrip API, secure employee opening delivery, and a real privacy-first web app. Review the generated public payloads and claim linkage on Preview. Validate the current Rise In program requirements before submission.
