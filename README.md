@@ -9,8 +9,8 @@ PayDrip is an experimental Midnight Compact contract for employer-issued private
 - **Implemented locally:** six Compact circuits in `contract/src/paydrip.compact` and focused off-chain tests.
 - **Compiled/tested:** run the commands below to reproduce on your machine. Generated `managed/paydrip` artifacts are ignored by Git and must be generated locally.
 - **Preview deployment:** completed on 2026-09-29. The contract address and independent indexer check are recorded below.
-- **Landing page:** an editorial, static protocol showcase lives in `apps/web`. Its interface examples are illustrative; no wallet is connected and it cannot submit payroll transactions or proofs.
-- **Web app:** a connected organization, employee, and verifier application is planned.
+- **Landing page:** an editorial protocol showcase lives at `/` under `apps/web`. Its interface examples remain illustrative.
+- **Local web terminal:** `/app` reads real Preview public state and is wired to all six deployed Compact circuits through a loopback Node service and the existing local wallet SDK. The terminal and its Preview payroll calls have **not** been exercised end to end on the network in this repository.
 
 ## Landing page
 
