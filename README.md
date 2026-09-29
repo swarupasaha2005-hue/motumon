@@ -9,7 +9,12 @@ PayDrip is an experimental Midnight Compact contract for employer-issued private
 - **Implemented locally:** six Compact circuits in `contract/src/paydrip.compact` and focused off-chain tests.
 - **Compiled/tested:** run the commands below to reproduce on your machine. Generated `managed/paydrip` artifacts are ignored by Git and must be generated locally.
 - **Preview deployment:** completed on 2026-09-29. The contract address and independent indexer check are recorded below.
-- **Web app:** planned; no PayDrip frontend is implemented in this repository.
+- **Landing page:** an editorial, static protocol showcase lives in `apps/web`. Its interface examples are illustrative; no wallet is connected and it cannot submit payroll transactions or proofs.
+- **Web app:** a connected organization, employee, and verifier application is planned.
+
+## Landing page
+
+Run the static site locally with `npm run web:dev` and open `http://127.0.0.1:5173`. Run `npm run web:check` to check its JavaScript syntax and `npm run web:build` to create `dist/web`. These commands need no frontend dependencies beyond Node.js. The page explains the protocol and demonstrates claim selection with local example data only.
 
 ## Public and private model
 
@@ -60,7 +65,7 @@ docker compose -f compose.preview.yml down
 
 ## Tests and limitations
 
-`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain. A real deployment transaction and indexed contract state have been verified on Preview; payroll operations and a frontend have not been tested there. There is no confidential payment feature. Issuer honesty, delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
+`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain. A real deployment transaction and indexed contract state have been verified on Preview; payroll operations have not been tested there. The landing page is a static concept, not a connected application. There is no confidential payment feature. Issuer honesty, delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
 
 ## Deployment evidence
 
