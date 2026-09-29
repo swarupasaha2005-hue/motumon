@@ -78,7 +78,7 @@ docker compose -f compose.preview.yml down
 
 ## Tests and limitations
 
-`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain. A real deployment transaction and indexed contract state have been verified on Preview; payroll operations have not been tested there. The landing page is a static concept, not a connected application. There is no confidential payment feature. Issuer honesty, delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
+`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain. `npm run web:test` covers local record validation, public-state serialization, error redaction, and origin enforcement. A real deployment transaction and indexed contract state have been verified on Preview; payroll circuit calls from the terminal have not been tested there. There is no confidential payment feature. Issuer honesty, secure delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
 
 ## Deployment evidence
 
@@ -86,4 +86,4 @@ docker compose -f compose.preview.yml down
 
 ## Further work
 
-Build a PayDrip API, secure employee opening delivery, and a real privacy-first web app. Review the generated public payloads and claim linkage on Preview. Validate the current Rise In program requirements before submission.
+Exercise every terminal circuit on Preview with separate issuer and employee local wallets, inspect generated public payloads and claim linkage, and independently review the local service. Add authenticated employer-to-employee opening delivery and a browser wallet adapter before any remotely hosted application. Validate the current Rise In program requirements before submission.
