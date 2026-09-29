@@ -89,6 +89,33 @@
         <div class="statement-section__aside"><span class="tiny-rule"></span><p>Verification should answer a question. It should not open a person's entire compensation history.</p><p>PayDrip separates what must be proven from what should remain private.</p></div>
       </section>
 
+      <section class="privacy-section section-pad" id="privacy" aria-labelledby="privacy-title">
+        <div class="page-shell">
+          <div class="section-heading"><span class="eyebrow">02 / SELECTIVE DISCLOSURE</span><span class="section-heading__rule"></span><span class="eyebrow">PRIVATE / VERIFIABLE</span></div>
+          <div class="privacy-section__intro" data-reveal><h2 id="privacy-title">Reveal the proof.<br /><span>Not the paycheck.</span></h2><p>A private record is checked against an authorized commitment. Only the selected claim and necessary public state become visible.</p></div>
+          <div class="privacy-window" data-privacy-window data-reveal>
+            <div class="privacy-window__bar"><span class="eyebrow">A CONTROLLED VIEW OF THE SAME RECORD</span><button class="small-toggle" type="button" data-privacy-toggle aria-pressed="false">Focus on verifier view <span aria-hidden="true">↗</span></button></div>
+            <div class="privacy-window__panes">
+              <div class="privacy-pane privacy-pane--private">
+                <div class="privacy-pane__top"><span class="pane-icon">01</span><span>PRIVATE OPENING</span></div>
+                <div class="privacy-pane__title">Kept off the<br />public ledger.</div>
+                <div class="privacy-pane__fields"><div><span>Employee secret</span><b class="redacted" aria-label="Hidden">••••••••••</b></div><div><span>Monthly salary</span><b class="redacted" aria-label="Hidden">••••••••••</b></div><div><span>Commitment randomness</span><b class="redacted" aria-label="Hidden">••••••••••</b></div></div>
+                <p>Private inputs are checked inside the circuit. The issuer necessarily knows the compensation it records.</p>
+              </div>
+              <div class="privacy-window__aperture" aria-hidden="true"><span>PROVE ONLY WHAT IS ASKED</span></div>
+              <div class="privacy-pane privacy-pane--public">
+                <div class="privacy-pane__top"><span class="pane-icon">02</span><span>VERIFIABLE CLAIM</span></div>
+                <div class="privacy-pane__title">Enough to verify.<br />Nothing extra.</div>
+                <div class="privacy-pane__result"><span class="privacy-pane__check" aria-hidden="true">✓</span><div><span>Payroll record matches</span><strong>Salary ≥ $3,000</strong></div></div>
+                <div class="privacy-pane__disclosure"><span>Exact salary</span><strong>NOT DISCLOSED</strong></div>
+                <p>Commitment handles, claim context, and transaction metadata can still link activity.</p>
+              </div>
+            </div>
+          </div>
+          <p class="section-footnote">Illustrative interface. The contract supports fixed USD monthly tiers of $3,000, $5,000, and $10,000; this page does not generate a proof.</p>
+        </div>
+      </section>
+
     </main>
     <script type="module" src="./src/main.js"></script>
   </body>
