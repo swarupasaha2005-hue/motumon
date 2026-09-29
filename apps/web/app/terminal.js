@@ -1,4 +1,4 @@
-import { connectOneAm } from './oneam-wallet.js';
+import { createOneAmSession, walletConnectionError, operatorActionAvailability } from './oneam-wallet.js';
 
 const $ = (id) => document.getElementById(id);
 const field = (id) => /** @type {HTMLInputElement | HTMLSelectElement} */ ($(id));
@@ -16,12 +16,14 @@ const pages = {
   verify: ['Verify a claim', 'Read an accepted claim receipt from the Preview ledger.'],
   network: ['Network & contract', 'Inspect the deployed contract and local services.'],
 };
+const browserWallet = createOneAmSession();
 const app = { token: null, meta: null, ledger: null, wallet: null, oneAm: null, opening: null,
-  employeeSecret: null, preparedOpening: null, identity: null, currentPage: 'overview', busy: false };
+  employeeSecret: null, preparedOpening: null, identity: null, recordDownloaded: false, deployment: null, privateGeneration: 0, browserAttempt: 0, currentPage: 'overview', busy: false };
 
 function notice(message, tone = 'neutral') {
   $('notice').textContent = message;
   $('notice').dataset.tone = tone;
+  $('notice').setAttribute('role', tone === 'error' ? 'alert' : 'status');
 }
 
 function short(value, front = 8, back = 6) {
@@ -59,6 +61,11 @@ function dollarsToMinor(value) {
   const cents = BigInt(whole) * 100n + BigInt(decimal.padEnd(2, '0') || '0');
   if (cents <= 0n || cents > 18446744073709551615n) throw new Error('Salary is outside the supported range.');
   return String(cents);
+}
+
+function parsePrivateJson(text) {
+  try { return JSON.parse(text); }
+  catch { throw new Error('The private file is not valid JSON. Its contents have not been displayed.'); }
 }
 
 async function api(path, options = {}) {
@@ -104,26 +111,73 @@ function renderWallet() {
   $('wallet-address').textContent = connected ? app.wallet.address : app.wallet ? 'Disconnected' : 'Unavailable';
   $('connect-wallet').hidden = connected;
   $('disconnect-wallet').hidden = !connected;
-  renderTopWallet();
+  renderOperatorActions();
 }
 
 function renderTopWallet() {
-  $('top-wallet').textContent = app.oneAm
-    ? `1AM ${short(app.oneAm.address, 12, 6)}`
-    : app.wallet?.connected ? `Local ${short(app.wallet.address, 12, 6)}` : 'Wallet disconnected';
+  $('top-wallet').textContent = app.oneAm ? `1AM • Connected ${short(app.oneAm.address, 12, 6)}` : 'Not connected';
+  $('top-wallet').title = app.oneAm?.address ?? 'Connect your 1AM Wallet on Midnight Preview';
 }
 
 function renderOneAm() {
-  $('overview-oneam').textContent = app.oneAm ? 'Connected' : 'Disconnected';
-  $('oneam-status').textContent = app.oneAm ? 'Connected to Preview' : 'Disconnected';
+  const connected = !!app.oneAm;
+  const pending = browserWallet.pending;
+  $('overview-oneam').textContent = connected ? 'Connected' : pending ? 'Awaiting approval' : 'Disconnected';
+  $('oneam-status').textContent = connected ? 'Connected to Midnight Preview' : pending ? 'Awaiting 1AM approval' : 'Disconnected';
   $('oneam-address').textContent = app.oneAm?.address ?? 'Not connected';
-  $('connect-oneam').hidden = !!app.oneAm;
-  $('connect-oneam-overview').hidden = !!app.oneAm;
-  $('disconnect-oneam').hidden = !app.oneAm;
+  for (const id of ['connect-oneam', 'connect-oneam-overview', 'connect-oneam-header']) {
+    button(id).hidden = connected;
+    button(id).disabled = pending;
+    button(id).textContent = pending ? 'Connecting…' : 'Connect Wallet';
+    button(id).setAttribute('aria-busy', String(pending));
+  }
+  for (const id of ['disconnect-oneam', 'disconnect-oneam-header']) {
+    button(id).hidden = !connected && !pending;
+    button(id).textContent = pending ? 'Cancel' : 'Disconnect';
+  }
+  button('copy-oneam').hidden = !connected;
+  const capabilities = app.oneAm?.capabilities;
+  $('oneam-capabilities').textContent = capabilities
+    ? `${capabilities.balancing ? 'Balance exposed' : 'Balance absent'} · ${capabilities.submission ? 'Submit exposed' : 'Submit absent'}` : 'Connect to inspect';
+  $('oneam-capability-note').textContent = capabilities
+    ? 'Method presence has been detected, not tested. PayDrip does not yet adapt these methods into its Midnight.js transaction providers. This browser session is not the transaction signer.'
+    : 'Wallet transaction capabilities have not been exercised by PayDrip.';
   renderTopWallet();
 }
 
+function renderOperatorActions() {
+  const state = operatorActionAvailability({ hosted: hostedStatic, connected: !!app.wallet?.connected, busy: app.busy });
+  $('operator-action-status').textContent = state.reason;
+  $('operator-global-status').textContent = state.reason;
+  for (const selector of ['#open-epoch-form button[type="submit"]', '#close-epoch-form button[type="submit"]', '#revoke-record-form button[type="submit"]', '#submit-proof']) {
+    const control = /** @type {HTMLButtonElement} */ (document.querySelector(selector));
+    control.disabled = !state.enabled;
+    control.title = state.reason;
+  }
+  button('register-record').disabled = !state.enabled || !app.preparedOpening || !app.recordDownloaded;
+}
+
+function clearPrivateSession() {
+  ++app.privateGeneration;
+  app.opening = null; app.employeeSecret = null; app.preparedOpening = null; app.identity = null; app.recordDownloaded = false;
+  for (const id of ['import-record-form', 'prepare-record-form', 'identity-form', 'proof-form']) form(id).reset();
+  $('tier-field').hidden = false;
+  $('proof-private-record').textContent = 'No private payroll record imported.';
+  $('proof-private-salary').hidden = true;
+  $('proof-private-salary').textContent = '';
+  button('reveal-private-salary').disabled = true;
+  button('reveal-private-salary').setAttribute('aria-pressed', 'false');
+  button('reveal-private-salary').textContent = 'Reveal salary locally';
+  $('proof-result').hidden = true;
+  $('proof-result').replaceChildren();
+  $('identity-pseudonym').textContent = '';
+  $('my-record-panel').replaceChildren(element('div', 'empty-state', 'Private record cleared from this browser session.'));
+  $('identity-result').hidden = true; $('prepared-record').hidden = true;
+  renderOperatorActions();
+}
+
 function renderMeta() {
+  $('contract-status').textContent = app.ledger ? 'Deployed · indexed' : 'Not verified live';
   if (!app.meta) {
     $('node-health').textContent = 'Unavailable';
     $('proof-health').textContent = 'Unavailable';
@@ -217,8 +271,10 @@ async function waitForJob(id) {
 }
 
 async function runAction(action, input) {
-  if (app.busy) throw new Error('Wait for the current contract action to finish.');
+  const availability = operatorActionAvailability({ hosted: hostedStatic, connected: !!app.wallet?.connected, busy: app.busy });
+  if (!availability.enabled) throw new Error(availability.reason);
   app.busy = true;
+  renderOperatorActions();
   showActivity('Preparing', 'Submitting only after the local wallet and proof server are ready.');
   try {
     const job = await post('actions', { action, ...input });
@@ -230,7 +286,7 @@ async function runAction(action, input) {
     showActivity('Action failed', error.message);
     notice(error.message, 'error');
     throw error;
-  } finally { app.busy = false; }
+  } finally { app.busy = false; renderOperatorActions(); }
 }
 
 function showRecordCheck(check) {
@@ -270,43 +326,47 @@ function bindNavigation() {
 
 function bindWallet() {
   const connectBrowserWallet = async () => {
-    button('connect-oneam').disabled = true;
-    button('connect-oneam-overview').disabled = true;
-    notice('Waiting for 1AM to approve a Preview connection.');
-    try {
-      app.oneAm = await connectOneAm(/** @type {Window & {midnight?: Record<string, import('./oneam-wallet.js').InitialWallet>}} */ (window).midnight);
-      renderOneAm();
-      notice('1AM connected to Preview. Payroll transactions still use the separate local wallet.', 'success');
-    } catch (error) {
-      notice(error instanceof Error ? error.message : '1AM could not connect. Check the wallet extension and retry.', 'error');
-    } finally { button('connect-oneam').disabled = false; button('connect-oneam-overview').disabled = false; }
-  };
-  $('connect-oneam').addEventListener('click', connectBrowserWallet);
-  $('connect-oneam-overview').addEventListener('click', connectBrowserWallet);
-  $('disconnect-oneam').addEventListener('click', () => {
-    app.oneAm = null;
+    if (browserWallet.pending || app.oneAm) return;
+    const currentAttempt = ++app.browserAttempt;
+    notice('Waiting for 1AM to approve a Midnight Preview connection.');
+    const attempt = browserWallet.connect(/** @type {Window & {midnight?: Record<string, import('./oneam-wallet.js').InitialWallet>}} */ (window).midnight);
     renderOneAm();
-    notice('1AM cleared from this page. Revoke site access in 1AM if you want to remove the extension permission.', 'success');
+    try {
+      const connected = await attempt;
+      if (currentAttempt !== app.browserAttempt) return;
+      app.oneAm = connected;
+      notice('1AM connected to Midnight Preview. The local Preview operator remains the circuit transaction executor.', 'success');
+    } catch (error) { if (currentAttempt === app.browserAttempt) notice(walletConnectionError(error), 'error'); }
+    finally { renderOneAm(); }
+  };
+  for (const id of ['connect-oneam', 'connect-oneam-overview', 'connect-oneam-header']) $(id).addEventListener('click', connectBrowserWallet);
+  for (const id of ['disconnect-oneam', 'disconnect-oneam-header']) $(id).addEventListener('click', () => {
+    ++app.browserAttempt;
+    browserWallet.disconnect();
+    app.oneAm = null;
+    clearPrivateSession();
+    renderOneAm();
+    notice('1AM app session disconnected and private inputs cleared. Existing submitted calls continue under the local operator. Revoke extension access inside 1AM if needed.', 'success');
+  });
+  $('copy-oneam').addEventListener('click', async () => {
+    if (!app.oneAm) return;
+    try { await navigator.clipboard.writeText(app.oneAm.address); notice('Public Preview wallet address copied.', 'success'); }
+    catch { notice('Unable to copy. The full public address is available in Network & contract.', 'error'); }
   });
   document.addEventListener('visibilitychange', async () => {
     if (document.hidden || !app.oneAm) return;
     const session = app.oneAm;
-    try {
-      const status = await session.api.getConnectionStatus();
-      const address = await session.api.getUnshieldedAddress();
-      if (app.oneAm !== session) return;
-      if (status.status !== 'connected' || status.networkId !== 'preview' || address.unshieldedAddress !== session.address) {
-        app.oneAm = null;
-        renderOneAm();
-        notice('The 1AM account or network changed. Connect again to use the current Preview account.', 'error');
-      }
-    } catch {
-      if (app.oneAm !== session) return;
+    const valid = await browserWallet.refresh();
+    if (app.oneAm !== session) return;
+    if (!valid) {
       app.oneAm = null;
+      clearPrivateSession();
       renderOneAm();
-      notice('The 1AM connection is no longer available. Connect again.', 'error');
+      notice('The 1AM session, account, or network changed. Private inputs cleared; connect again to Midnight Preview.', 'error');
     }
   });
+  window.addEventListener('pagehide', () => { ++app.browserAttempt; browserWallet.disconnect(); app.oneAm = null; clearPrivateSession(); });
+  window.addEventListener('pageshow', () => renderOneAm());
   $('connect-wallet').addEventListener('click', async () => {
     button('connect-wallet').disabled = true;
     notice('Connecting the existing local Preview wallet. Initial synchronization can take time.');
@@ -317,9 +377,7 @@ function bindWallet() {
   $('disconnect-wallet').addEventListener('click', async () => {
     try {
       app.wallet = await post('wallet/disconnect', {});
-      app.opening = null; app.employeeSecret = null; app.preparedOpening = null; app.identity = null;
-      $('my-record-panel').replaceChildren(element('div', 'empty-state', 'Private record cleared from this browser session.'));
-      $('identity-result').hidden = true; $('prepared-record').hidden = true; renderWallet();
+      clearPrivateSession(); renderWallet();
       notice('Wallet disconnected. Private session data was cleared.', 'success');
     } catch (error) { notice(error.message, 'error'); }
   });
@@ -346,6 +404,7 @@ function bindOrganization() {
         epoch, employeePseudonym: requireHex(field('record-pseudonym').value, 'Employee pseudonym'),
         monthlySalaryMinor: dollarsToMinor(field('record-salary').value), currency: 'USD', randomness: randomHex() };
       app.preparedOpening = opening;
+      app.recordDownloaded = false;
       field('record-salary').value = '';
       $('prepared-record').hidden = false;
       button('register-record').disabled = true;
@@ -355,7 +414,8 @@ function bindOrganization() {
   $('download-opening').addEventListener('click', () => {
     if (!app.preparedOpening) return;
     downloadJson(`paydrip-record-${app.preparedOpening.epoch.slice(0, 12)}.json`, app.preparedOpening);
-    button('register-record').disabled = false;
+    app.recordDownloaded = true;
+    renderOperatorActions();
     notice('Private record download started. Keep it secure and deliver it only to the intended employee.', 'success');
   });
   $('register-record').addEventListener('click', async () => {
@@ -371,12 +431,25 @@ function bindOrganization() {
 }
 
 function bindEmployee() {
+  $('reveal-private-salary').addEventListener('click', () => {
+    if (!app.opening) return;
+    const reveal = $('proof-private-salary').hidden;
+    if (reveal) {
+      const minor = BigInt(app.opening.monthlySalaryMinor);
+      $('proof-private-salary').textContent = `USD ${minor / 100n}.${String(minor % 100n).padStart(2, '0')} / month · private record input`;
+    } else $('proof-private-salary').textContent = '';
+    $('proof-private-salary').hidden = !reveal;
+    button('reveal-private-salary').setAttribute('aria-pressed', String(reveal));
+    button('reveal-private-salary').textContent = reveal ? 'Hide private salary' : 'Reveal salary locally';
+  });
   $('identity-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
       const epoch = requireHex(field('identity-epoch').value, 'Period ID');
       const employeeSecret = randomHex();
+      const generation = app.privateGeneration;
       const { pseudonym } = await post('pseudonym', { epoch, employeeSecret });
+      if (generation !== app.privateGeneration) return;
       app.identity = { format: 'paydrip-identity-v1', epoch, employeeSecret };
       $('identity-pseudonym').textContent = pseudonym;
       $('identity-result').hidden = false;
@@ -389,14 +462,15 @@ function bindEmployee() {
   $('import-record-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
+      const generation = app.privateGeneration;
       const file = input('record-file').files[0];
       if (!file || file.size > 16_384) throw new Error('Choose a private PayDrip record file smaller than 16 KB.');
-      const opening = JSON.parse(await file.text());
+      const opening = parsePrivateJson(await file.text());
       const identityFile = input('identity-file').files[0];
       let employeeSecret;
       if (identityFile) {
         if (identityFile.size > 16_384) throw new Error('Choose a private identity file smaller than 16 KB.');
-        const identity = JSON.parse(await identityFile.text());
+        const identity = parsePrivateJson(await identityFile.text());
         if (identity.format !== 'paydrip-identity-v1' || identity.epoch !== opening.epoch) {
           throw new Error('The private identity file does not match this payroll period.');
         }
@@ -408,12 +482,20 @@ function bindEmployee() {
       } else {
         throw new Error('Choose your private identity file or enter your employee secret.');
       }
+      if (generation !== app.privateGeneration) return;
       const check = await post('record/check', { opening, employeeSecret });
+      if (generation !== app.privateGeneration) return;
       app.opening = check.registered && !check.revoked ? opening : null;
       app.employeeSecret = check.registered && !check.revoked ? employeeSecret : null;
       field('employee-secret').value = '';
       field('identity-file').value = '';
       field('record-file').value = '';
+      $('proof-private-record').textContent = app.opening ? `Payroll period ${short(check.epoch)} · authorized private record loaded` : 'No claimable private payroll record.';
+      button('reveal-private-salary').disabled = !app.opening;
+      button('reveal-private-salary').setAttribute('aria-pressed', 'false');
+      button('reveal-private-salary').textContent = 'Reveal salary locally';
+      $('proof-private-salary').textContent = '';
+      $('proof-private-salary').hidden = true;
       showRecordCheck(check);
       notice(check.registered && !check.revoked ? 'Private opening matches a registered Preview record.' : 'The private opening is not currently claimable.', check.registered && !check.revoked ? 'success' : 'error');
     } catch (error) { notice(error.message, 'error'); }
@@ -433,9 +515,10 @@ function bindEmployee() {
       const action = income ? 'proveIncomeTier' : 'proveEmployment';
       const tier = income ? Number(field('proof-tier').value) : undefined;
       const result = await runAction(action, { opening: app.opening, employeeSecret: app.employeeSecret, context, ...(income ? { tier } : {}) });
-      showClaimResult('proof-result', 'Claim accepted on Preview', [
+      showClaimResult('proof-result', income ? 'Income requirement satisfied' : 'Historical membership accepted', [
         ['Statement', income ? `Monthly income ≥ ${ { 1: '$3,000', 2: '$5,000', 3: '$10,000' }[tier] }` : 'Included in a historical payroll period'],
         ['Request context', context], ['Transaction', result.txId], ['Block', result.blockHeight],
+        ['Network', 'Midnight Preview'], ['Circuit', action], ['Contract', result.contractAddress], ['Transaction executor', 'Local Preview operator (not 1AM)'], ['Exact salary', 'Not disclosed in public ledger state'],
       ], 'Exact salary is not stored in the public claim receipt. The context and record handle are public and can link activity.');
     } catch (error) { notice(error.message, 'error'); }
   });
@@ -465,19 +548,31 @@ function bindVerifier() {
   });
 }
 
+async function loadDeployment() {
+  try {
+    const response = await fetch('/deployment.preview.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    const manifest = await response.json();
+    if (manifest.network !== 'preview' || !hex64.test(manifest.contractAddress)) return;
+    app.deployment = manifest;
+    $('overview-contract').textContent = manifest.contractAddress;
+    $('network-contract').textContent = manifest.contractAddress;
+  } catch { /* Manifest unavailable: keep the status unknown. */ }
+}
+
 async function init() {
   bindNavigation(); bindWallet(); bindOrganization(); bindEmployee(); bindVerifier();
-  renderOneAm();
+  renderOneAm(); renderOperatorActions();
   if (hostedStatic) {
     const caption = document.querySelector('.sidebar__caption');
     if (caption) caption.textContent = 'HOSTED INTERFACE PREVIEW';
     $('overview-wallet').textContent = 'Local only';
-    $('overview-contract').textContent = 'See deployment documentation';
+    $('contract-status').textContent = 'Not verified live';
     $('overview-network').textContent = 'Live state requires the local service';
     $('indexer-health').textContent = 'Local service required';
     $('node-health').textContent = 'Local service required';
     $('proof-health').textContent = 'Local service required';
-    $('network-contract').textContent = 'Available through the local terminal';
+    void loadDeployment();
     $('wallet-address').textContent = 'Local wallet required';
     $('admin-available').textContent = 'Local only';
     $('epoch-list').replaceChildren(element('div', 'empty-state', 'Public period state is available through the local terminal.'));
@@ -488,6 +583,7 @@ async function init() {
     notice('Hosted interface preview: payroll transactions and verification require the local PayDrip service. This site does not submit contract actions.', 'error');
     return;
   }
+  void loadDeployment();
   try { app.token = (await api('session')).token; await refresh(); }
   catch (error) { notice(`Local terminal unavailable: ${error.message}`, 'error'); }
 }
