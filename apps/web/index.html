@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f3ee" />
+    <meta name="description" content="PayDrip is an experimental privacy-preserving payroll protocol on Midnight. Prove an authorized payroll claim without publishing an exact salary." />
+    <title>PayDrip — Payroll belongs on-chain. Salaries don't.</title>
+    <script>document.documentElement.classList.add('can-reveal');</script>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./src/tokens.css" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="site-header__inner page-shell">
+        <a class="brand" href="#top" aria-label="PayDrip, back to top">
+          <span class="brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>PayDrip<span class="brand__period">.</span></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#protocol">Protocol</a>
+          <a href="https://github.com/swarupasaha2005-hue/motumon#readme" target="_blank" rel="noopener noreferrer">Docs <span aria-hidden="true">↗</span></a>
+        </nav>
+        <a class="header-cta" href="#experience">Explore the concept <span aria-hidden="true">↗</span></a>
+        <button class="menu-button" type="button" aria-label="Open menu" aria-controls="mobile-nav" aria-expanded="false" data-menu-button>
+          <span></span><span></span>
+        </button>
+      </div>
+      <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" hidden data-mobile-nav>
+        <a href="#how-it-works">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#protocol">Protocol</a>
+        <a href="#experience">Explore the concept</a>
+        <a href="https://github.com/swarupasaha2005-hue/motumon#readme" target="_blank" rel="noopener noreferrer">Technical docs ↗</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero page-shell" id="top" aria-labelledby="hero-title">
+        <div class="hero__topline eyebrow"><span class="eyebrow__dot"></span> Private payroll infrastructure <span class="hero__topline-right">Built on Midnight / 2026</span></div>
+        <div class="hero__grid">
+          <div class="hero__copy">
+            <h1 id="hero-title">Payroll belongs <span class="hero__line">on-chain.</span><span class="hero__accent">Salaries don't<span class="hero__period">.</span></span></h1>
+            <div class="hero__bottom">
+              <p>Verifiable payroll records. Private compensation. Proof of what matters, without publishing the paycheck.</p>
+              <div class="hero__actions">
+                <a class="button button--dark" href="#experience">Explore PayDrip <span aria-hidden="true">↗</span></a>
+                <a class="text-link" href="#how-it-works">How it works <span aria-hidden="true">↘</span></a>
+              </div>
+              <span class="small-note">Protocol deployed on Preview · Product interface in development</span>
+            </div>
+          </div>
+          <div class="hero-art" aria-label="Illustration of a private payroll record yielding a limited public claim">
+            <div class="hero-art__number eyebrow">FIG. 01 <span>PROOF / DATA</span></div>
+            <div class="artifact artifact--private">
+              <div class="artifact__head"><span>Private payroll record</span><span class="artifact__seal">HOLDER VIEW</span></div>
+              <div class="artifact__meta"><span>MONTHLY BASE / EXAMPLE</span><span>USD</span></div>
+              <div class="artifact__salary" aria-hidden="true">$5,000<span class="artifact__mask"></span></div>
+              <div class="artifact__row"><span>Period</span><strong>September 2026</strong></div>
+              <div class="artifact__row"><span>Record</span><strong>Opening stays private</strong></div>
+              <div class="artifact__foot"><span class="privacy-pip"></span> Opening and salary stay off the public ledger</div>
+            </div>
+            <div class="hero-art__rail" aria-hidden="true"><span></span><span>SELECTIVE DISCLOSURE</span><span>↓</span></div>
+            <div class="artifact artifact--claim">
+              <div class="artifact__head"><span>Verifiable claim</span><span class="artifact__seal artifact__seal--light">PUBLIC RESULT</span></div>
+              <div class="artifact__claim-label">Monthly income threshold</div>
+              <div class="artifact__claim-value">≥ $3,000 <span aria-hidden="true">↗</span></div>
+              <div class="artifact__outcome"><span class="outcome-mark" aria-hidden="true">✓</span><span>Requirement satisfied</span></div>
+              <div class="artifact__claim-foot">Exact salary <strong>not disclosed</strong></div>
+            </div>
+            <div class="hero-art__caption">Illustrative claim · No transaction is submitted here</div>
+          </div>
+        </div>
+        <div class="hero__baseline"><span>01 / A PROTOCOL FOR BOUNDARIES</span><a href="#problem">Scroll to discover <span aria-hidden="true">↓</span></a></div>
+      </section>
+
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
