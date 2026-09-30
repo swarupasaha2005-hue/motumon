@@ -5,17 +5,22 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "validate": "npm run paydrip:compile && npm run web:check && npm run web:typecheck && npm run paydrip:test && npm run web:test && npm run web:build",
     "web:dev": "node apps/web/dev-server.mjs",
     "web:build": "node apps/web/build.mjs",
-    "web:check": "node --check apps/web/src/main.js && node --check apps/web/app/terminal.js && node --check apps/web/app/oneam-wallet.js && node --check apps/web/server/preview-service.mjs && node --check apps/web/server/api.mjs && node --check apps/web/dev-server.mjs && node --check apps/web/build.mjs",
+    "web:check": "node --check apps/web/src/main.js && node --check apps/web/app/terminal.js && node --check apps/web/app/oneam-wallet.js && node --check apps/web/server/preview-service.mjs && node --check apps/web/server/operator-session.mjs && node --check scripts/preview-wallet-check.mjs && node --check scripts/lib/network-config.mjs && node --check apps/web/server/api.mjs && node --check apps/web/dev-server.mjs && node --check apps/web/build.mjs && node --check apps/web/server/operator-readiness.mjs",
     "web:typecheck": "tsc -p tsconfig.web.json",
     "web:test": "vitest run apps/web/server/*.test.mjs apps/web/app/*.test.mjs",
     "paydrip:compile": "compact compile contract/src/paydrip.compact contract/src/managed/paydrip",
     "paydrip:test": "vitest run contract/src/test/paydrip.test.ts",
     "preview:wallet": "node scripts/preview-wallet.mjs",
+    "preview:wallet-check": "node scripts/preview-wallet-check.mjs",
     "preview:status": "node scripts/preview-deploy.mjs --status",
     "preview:deploy": "node scripts/preview-deploy.mjs --deploy",
-    "preview:verify": "node scripts/preview-verify.mjs"
+    "preview:verify": "node scripts/preview-verify.mjs",
+    "users:verify": "node scripts/users-verify.mjs",
+    "users:canary": "node scripts/users-run70.mjs --canary",
+    "users:run70": "node scripts/users-run70.mjs"
   },
   "engines": {
     "node": ">=24.11.1"
