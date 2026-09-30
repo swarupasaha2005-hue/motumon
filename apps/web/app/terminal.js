@@ -18,7 +18,8 @@ const pages = {
 };
 const browserWallet = createOneAmSession();
 const app = { token: null, meta: null, ledger: null, wallet: null, oneAm: null, opening: null,
-  employeeSecret: null, preparedOpening: null, identity: null, recordDownloaded: false, deployment: null, privateGeneration: 0, browserAttempt: 0, currentPage: 'overview', busy: false };
+  employeeSecret: null, preparedOpening: null, identity: null, recordDownloaded: false, deployment: null, privateGeneration: 0, browserAttempt: 0, currentPage: 'overview', busy: false,
+  operatorRevision: 0, operatorPending: false, refreshRevision: 0 };
 
 function notice(message, tone = 'neutral') {
   $('notice').textContent = message;
@@ -147,14 +148,42 @@ function renderOneAm() {
 
 function renderOperatorActions() {
   const state = operatorActionAvailability({ hosted: hostedStatic, connected: !!app.wallet?.connected, busy: app.busy });
+  if (!hostedStatic && app.operatorPending) {
+    state.enabled = false;
+    state.reason = 'Wait for the local operator connection change to finish.';
+  }
   $('operator-action-status').textContent = state.reason;
   $('operator-global-status').textContent = state.reason;
-  for (const selector of ['#open-epoch-form button[type="submit"]', '#close-epoch-form button[type="submit"]', '#revoke-record-form button[type="submit"]', '#submit-proof']) {
+  const validHex = (id) => hex64.test(field(id).value.trim());
+  const checks = [
+    ['#open-epoch-form button[type="submit"]', 'open-period-status', validHex('open-epoch') ? '' : 'Generate or enter a 64-character hexadecimal Period ID.'],
+    ['#close-epoch-form button[type="submit"]', 'close-period-status', validHex('close-epoch') ? '' : 'Enter the existing open Period ID.'],
+    ['#revoke-record-form button[type="submit"]', 'revoke-record-status', validHex('revoke-epoch') && validHex('revoke-commitment') ? '' : 'Enter the Period ID and public record commitment (64 hexadecimal characters each).'],
+    ['#submit-proof', 'claim-action-status', !app.opening || !app.employeeSecret ? 'Import and check your registered private record and matching identity in My payroll.'
+      : !validHex('proof-context') || /^0{64}$/.test(field('proof-context').value.trim()) ? 'Paste a fresh nonzero context from Verify a claim → Generate request context.' : ''],
+  ];
+  for (const [selector, statusId, missing] of checks) {
     const control = /** @type {HTMLButtonElement} */ (document.querySelector(selector));
-    control.disabled = !state.enabled;
-    control.title = state.reason;
+    const reason = !state.enabled ? state.reason : missing || state.reason;
+    control.disabled = !state.enabled || !!missing;
+    control.title = reason;
+    control.setAttribute('aria-describedby', statusId);
+    if ($(statusId)) $(statusId).textContent = `${control.disabled ? 'Unavailable: ' : ''}${reason}`;
   }
   button('register-record').disabled = !state.enabled || !app.preparedOpening || !app.recordDownloaded;
+  const registerReason = !state.enabled ? state.reason : !app.preparedOpening ? 'Prepare a private record first.'
+    : !app.recordDownloaded ? 'Download the private record before registering; its opening cannot be recovered from the ledger.' : state.reason;
+  button('register-record').title = registerReason;
+  if ($('register-record-status')) $('register-record-status').textContent = registerReason;
+  button('connect-wallet').disabled = hostedStatic || app.operatorPending || app.busy || !app.token;
+  button('connect-wallet').title = !app.token ? 'Wait for the local terminal session to load; reload if it failed.' : app.busy ? 'Wait for the current contract action.' : 'Connect the local transaction operator.';
+  button('disconnect-wallet').disabled = app.busy || app.operatorPending;
+  if ($('local-operator-status')) $('local-operator-status').textContent = hostedStatic ? state.reason
+    : !app.token ? 'Waiting for the local API session. Reload if the terminal reports a connection error.'
+    : app.operatorPending ? 'Connecting or disconnecting the local operator; please wait.'
+    : app.busy ? 'A contract action is running. Wait for its confirmed or failed result.'
+    : app.wallet?.connected ? 'Operator started. Circuit calls wait for wallet synchronization before proving; 1AM is a separate session.'
+    : 'Connect this local operator to enable circuit calls. Connecting 1AM alone does not enable them.';
 }
 
 function clearPrivateSession() {
@@ -224,10 +253,16 @@ function renderLedger() {
 }
 
 async function refresh() {
+  const revision = ++app.refreshRevision;
+  const operatorRevision = app.operatorRevision;
   const [meta, ledger, wallet] = await Promise.allSettled([api('meta'), api('state'), api('wallet')]);
+  if (revision !== app.refreshRevision) return;
   app.meta = meta.status === 'fulfilled' ? meta.value : null;
   app.ledger = ledger.status === 'fulfilled' ? ledger.value : null;
-  app.wallet = wallet.status === 'fulfilled' ? wallet.value : null;
+  // Slow indexer reads must not roll back a newer connect/disconnect response.
+  if (operatorRevision === app.operatorRevision && !app.operatorPending) {
+    app.wallet = wallet.status === 'fulfilled' ? wallet.value : null;
+  }
   renderMeta(); renderLedger(); renderWallet();
   if (ledger.status === 'rejected') {
     $('indexer-health').textContent = 'Unavailable';
@@ -320,7 +355,11 @@ function bindNavigation() {
     $('menu-toggle').setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { $('sidebar').classList.remove('is-open'); $('menu-toggle').setAttribute('aria-expanded', 'false'); } });
-  document.querySelectorAll('[data-generate]').forEach((item) => item.addEventListener('click', () => { field(/** @type {HTMLElement} */ (item).dataset.generate).value = randomHex(); }));
+  document.querySelectorAll('[data-generate]').forEach((item) => item.addEventListener('click', () => { field(/** @type {HTMLElement} */ (item).dataset.generate).value = randomHex(); renderOperatorActions(); }));
+  for (const id of ['open-epoch', 'close-epoch', 'revoke-epoch', 'revoke-commitment', 'proof-context']) {
+    $(id).addEventListener('input', renderOperatorActions);
+    $(id).addEventListener('change', renderOperatorActions);
+  }
   $('refresh-state').addEventListener('click', () => void refresh());
 }
 
@@ -368,30 +407,40 @@ function bindWallet() {
   window.addEventListener('pagehide', () => { ++app.browserAttempt; browserWallet.disconnect(); app.oneAm = null; clearPrivateSession(); });
   window.addEventListener('pageshow', () => renderOneAm());
   $('connect-wallet').addEventListener('click', async () => {
-    button('connect-wallet').disabled = true;
-    notice('Connecting the existing local Preview wallet. Initial synchronization can take time.');
-    try { app.wallet = await post('wallet/connect', {}); renderWallet(); notice('Local Preview wallet connected.', 'success'); }
-    catch (error) { notice(error.message, 'error'); }
-    finally { button('connect-wallet').disabled = false; }
+    if (app.operatorPending || app.busy || !app.token) return;
+    app.operatorPending = true;
+    ++app.operatorRevision;
+    renderOperatorActions();
+    $('overview-wallet').textContent = 'Connecting…';
+    button('connect-wallet').textContent = 'Connecting local Preview operator…';
+    notice('Initializing the local Preview operator (up to 120 seconds). Full wallet synchronization happens afterward.');
+    try { app.wallet = await post('wallet/connect', {}); renderWallet(); notice('Local Preview operator started. Circuit calls wait for synchronization before proving.', 'success'); }
+    catch (error) { app.wallet = { connected: false, address: null }; renderWallet(); notice(error.message, 'error'); }
+    finally { ++app.operatorRevision; app.operatorPending = false; button('connect-wallet').textContent = 'Connect local operator ↗'; renderOperatorActions(); }
   });
   $('disconnect-wallet').addEventListener('click', async () => {
+    if (app.operatorPending || app.busy) return;
+    app.operatorPending = true;
+    ++app.operatorRevision;
+    renderOperatorActions();
     try {
       app.wallet = await post('wallet/disconnect', {});
       clearPrivateSession(); renderWallet();
       notice('Wallet disconnected. Private session data was cleared.', 'success');
     } catch (error) { notice(error.message, 'error'); }
+    finally { ++app.operatorRevision; app.operatorPending = false; renderOperatorActions(); }
   });
 }
 
 function bindOrganization() {
   $('open-epoch-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    try { await runAction('openEpoch', { epoch: requireHex(field('open-epoch').value, 'Period ID') }); form('open-epoch-form').reset(); }
+    try { await runAction('openEpoch', { epoch: requireHex(field('open-epoch').value, 'Period ID') }); form('open-epoch-form').reset(); renderOperatorActions(); }
     catch (error) { notice(error.message, 'error'); }
   });
   $('close-epoch-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    try { await runAction('closeEpoch', { epoch: requireHex(field('close-epoch').value, 'Period ID') }); form('close-epoch-form').reset(); }
+    try { await runAction('closeEpoch', { epoch: requireHex(field('close-epoch').value, 'Period ID') }); form('close-epoch-form').reset(); renderOperatorActions(); }
     catch (error) { notice(error.message, 'error'); }
   });
   $('prepare-record-form').addEventListener('submit', (event) => {
@@ -407,7 +456,7 @@ function bindOrganization() {
       app.recordDownloaded = false;
       field('record-salary').value = '';
       $('prepared-record').hidden = false;
-      button('register-record').disabled = true;
+      renderOperatorActions();
       notice('Private opening prepared. Download it before registering the commitment.', 'success');
     } catch (error) { notice(error.message, 'error'); }
   });
@@ -420,12 +469,12 @@ function bindOrganization() {
   });
   $('register-record').addEventListener('click', async () => {
     if (!app.preparedOpening) return;
-    try { await runAction('registerRecord', { opening: app.preparedOpening }); app.preparedOpening = null; $('prepared-record').hidden = true; form('prepare-record-form').reset(); }
+    try { await runAction('registerRecord', { opening: app.preparedOpening }); app.preparedOpening = null; $('prepared-record').hidden = true; form('prepare-record-form').reset(); renderOperatorActions(); }
     catch (error) { notice(error.message, 'error'); }
   });
   $('revoke-record-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    try { await runAction('revokeRecord', { epoch: requireHex(field('revoke-epoch').value, 'Period ID'), commitment: requireHex(field('revoke-commitment').value, 'Commitment') }); form('revoke-record-form').reset(); }
+    try { await runAction('revokeRecord', { epoch: requireHex(field('revoke-epoch').value, 'Period ID'), commitment: requireHex(field('revoke-commitment').value, 'Commitment') }); form('revoke-record-form').reset(); renderOperatorActions(); }
     catch (error) { notice(error.message, 'error'); }
   });
 }
@@ -497,6 +546,7 @@ function bindEmployee() {
       $('proof-private-salary').textContent = '';
       $('proof-private-salary').hidden = true;
       showRecordCheck(check);
+      renderOperatorActions();
       notice(check.registered && !check.revoked ? 'Private opening matches a registered Preview record.' : 'The private opening is not currently claimable.', check.registered && !check.revoked ? 'success' : 'error');
     } catch (error) { notice(error.message, 'error'); }
   });
@@ -584,7 +634,7 @@ async function init() {
     return;
   }
   void loadDeployment();
-  try { app.token = (await api('session')).token; await refresh(); }
+  try { app.token = (await api('session')).token; renderOperatorActions(); await refresh(); }
   catch (error) { notice(`Local terminal unavailable: ${error.message}`, 'error'); }
 }
 
