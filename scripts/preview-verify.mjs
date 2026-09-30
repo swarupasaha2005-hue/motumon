@@ -1,13 +1,13 @@
 import dns from 'node:dns';
+import { networkConfiguration, assertDeploymentNetwork } from './lib/network-config.mjs';
 import net from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { WebSocket } from 'ws';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 
 const deployment = JSON.parse(await readFile(new URL('../deployment.preview.json', import.meta.url), 'utf8'));
-if (deployment.network !== 'preview' || !/^[0-9a-f]{64}$/.test(deployment.contractAddress)) {
-  throw new Error('Invalid public Preview deployment manifest');
-}
+assertDeploymentNetwork(deployment, 'preview');
+const environment = networkConfiguration('preview');
 
 const override = process.env.PAYDRIP_INDEXER_IP;
 if (override) {
@@ -26,8 +26,8 @@ if (override) {
 }
 
 const provider = indexerPublicDataProvider(
-  'https://indexer.preview.midnight.network/api/v4/graphql',
-  'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
+  environment.indexer,
+  environment.indexerWS,
   WebSocket,
 );
 const [current, deployed] = await Promise.all([
