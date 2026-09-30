@@ -1,10 +1,9 @@
 name: PayDrip CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  push: {}
+  pull_request: {}
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -32,12 +31,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile PayDrip
-        run: npm run paydrip:compile
+      - name: Validate contract and web application
+        run: npm run validate
 
-      - name: Test PayDrip
-        run: npm run paydrip:test
+      - name: Check patch whitespace
+        run: git show --format= --check HEAD
 
       - name: Check deployment scripts
         run: |
-          for file in scripts/*.mjs; do node --check "$file"; done
+          for file in scripts/*.mjs scripts/lib/*.mjs; do node --check "$file"; done
