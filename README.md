@@ -2,134 +2,242 @@
 
 **Payroll belongs on-chain. Salaries don't.**
 
-PayDrip is an experimental Midnight Compact contract for employer-issued private payroll records and selective historical employment and income-tier claims. The contract does **not** transfer salaries, prove that payment occurred, or guarantee anonymity. Public record commitments and claim receipts are linkable, and repeated tier answers can reveal a salary band. Read [the protocol architecture](docs/ARCHITECTURE.md) before using it.
+[![PayDrip CI](https://github.com/swarupasaha2005-hue/motumon/actions/workflows/ci.yaml/badge.svg)](https://github.com/swarupasaha2005-hue/motumon/actions/workflows/ci.yaml)
 
-## Current status
+PayDrip is a Midnight dApp for employer-authorized private payroll records and selective income or historical employment claims. An employee can prove that an authorized record meets a supported income threshold without publishing the exact salary in contract state.
 
-- **Implemented locally:** six Compact circuits in `contract/src/paydrip.compact` and focused off-chain tests.
-- **Compiled/tested:** run the commands below to reproduce on your machine. Generated `managed/paydrip` artifacts are ignored by Git and must be generated locally.
-- **Preview deployment:** completed on 2026-09-29. The contract address and independent indexer check are recorded below.
-- **Landing page:** an editorial protocol showcase lives at `/` under `apps/web`. Its interface examples remain illustrative.
-- **Local web terminal:** `/app` reads real Preview public state and is wired to all six deployed Compact circuits through a loopback Node service and the existing local wallet SDK. The terminal and its Preview payroll calls have **not** been exercised end to end on the network in this repository.
+**Provided idea: Private Payroll / Splits.** V1 implements records and claims; payment splits and confidential salary transfers are outside its scope.
 
-## Landing page
+## Live Demo
 
-Run the site and local terminal:
+[Open PayDrip](https://pay-drip.vercel.app/) → **Launch App**.
 
-```bash
+This is the configured public **interface demo**. It supports the separate 1AM wallet/session flow; hosted circuit submission and claim lookup are disabled because the transaction path requires the local service, operator and proof server. Private payroll inputs are not uploaded to Vercel. Current public-build freshness and accessibility were not established in the latest restricted environment.
+
+For real Preview circuit execution, use [Local Development](#local-development). The implementation is wired to all six circuits, but a successful payroll claim and its public transaction disclosure still require runtime verification. A previously checkpointed, unverified epoch submission is not successful claim evidence.
+
+## Demo Video
+
+**Not recorded / no video URL supplied.** Use the [60-second recording script](docs/submission/LEVEL3_DEMO_SCRIPT.md) after the real Preview flow succeeds. Do not substitute illustrations or mocked tests for a confirmed claim.
+
+## Why PayDrip
+
+Income checks often ask for a complete payslip when a narrow eligibility answer would suffice. Public on-chain payroll can expose compensation and relationships. PayDrip separates the employer's private payroll record from the public authorization handle and the employee's selectively disclosed claim.
+
+Midnight's Compact circuits check the opening, authorization and income comparison using private circuit inputs. A verifier can read an accepted claim receipt without receiving the private payroll file. Issuer honesty and secure delivery of that file remain trust assumptions.
+
+## Level 3 Track
+
+**Private Payroll / Splits** from the supplied idea list. The [product proposal](docs/LEVEL3_PRODUCT_PROPOSAL.md) is prepared; submission and approval are pending. The [Level 3 submission pack](docs/submission/LEVEL3_SUBMISSION.md) records the evidence and remaining gates independently of Level 5/6 participant testing.
+
+## How It Works
+
+1. An administrator opens a public payroll period.
+2. An employee generates a private identity and gives the issuer only the period-scoped pseudonym.
+3. The issuer prepares a private USD payroll record, saves/delivers its opening securely, and registers a randomized commitment.
+4. The employee imports the opening and matching identity, selects a supported claim, and consents to its public disclosures.
+5. Compact checks the private inputs against the authorized, unrevoked commitment and records an accepted claim under a fresh request context.
+6. A verifier looks up the public receipt by context.
+
+**Example, synthetic data only:** a private $5,000 monthly record can satisfy **At least $3,000**. The public claim states Tier 1; it does not store the exact salary. Repeated tier queries can narrow the salary range.
+
+## Privacy Model
+
+This section describes the source-defined relation and ledger schema. Off-chain tests validate those boundaries; complete public transaction/payload inspection still needs a genuine Preview claim.
+
+### What remains private
+
+- Exact monthly salary, employee secret, commitment randomness and the complete private payroll opening are private circuit inputs, not public ledger fields.
+- The administrator secret is checked against a public authenticator; the secret itself is not disclosed.
+- Wallet seed and private-state password stay in ignored local credential files.
+- PayDrip does not collect employee names, email addresses or government identifiers in the payroll record.
+
+Private does **not** mean unknown to everyone: the issuer knows compensation; the browser holds imported inputs in session memory; the loopback service and local proof server receive private inputs for checking/proving. Explicit identity/opening downloads are sensitive plaintext files. Employees must use a machine and prover they trust, and receive openings through an authenticated private channel.
+
+### What becomes public
+
+- Contract address; organization, deployment domain, USD currency and administrator authenticator hash.
+- Epoch IDs/status; commitment-to-epoch mappings; revoked commitment handles.
+- Request contexts; claim type (`0` historical membership, `1–3` income tier); linked commitment handles.
+- Transaction/block metadata available from the network.
+
+The public claim-to-record link exposes the payroll period relationship. Employee pseudonyms are shared with the issuer and committed inside the record; they are not standalone ledger fields. See the complete [disclosure map](docs/PRIVACY.md).
+
+### What a verifier learns
+
+An accepted income receipt means that, at submission time, the caller had the matching employee secret and opening of an issuer-authorized, unrevoked record in an existing payroll epoch, and its salary met the selected supported threshold. Tier 1/2/3 means monthly USD base salary **≥ $3,000 / $5,000 / $10,000**. Historical membership uses the same authorization checks without an income comparison.
+
+### What an observer cannot learn
+
+Public contract state does not directly supply the exact salary, private record opening, employee secret, administrator secret or commitment randomness. This is a statement about the schema and verified relation, not a guarantee against auxiliary information, compromised devices or inference. The issuer and local prover are not excluded observers.
+
+### Limitations
+
+- Metadata and claim handles remain public and linkable; anonymity and untraceability are not promised.
+- A commitment binds a record; it is **not encryption** or a recoverable backup.
+- Repeated/adaptive threshold requests may reveal a salary band. Fresh contexts do not prevent probing.
+- An authorized issuer can attest inaccurate real-world compensation. No payment/bank attestation exists.
+- Historical membership is not current employment. Closed epochs permit claims; existing receipts survive revocation.
+- Contexts are unique per accepted claim but are not bound to a named verifier or signed request policy.
+- No confidential salary payment rail, tax system or payment-splits execution is implemented.
+
+## Zero-Knowledge Design
+
+**In plain language:** prove an approved payroll record meets a requirement, without handing the verifier the paycheck.
+
+**In the circuit:** `requireEmployeeRecord` checks domain, organization and currency, derives the employee pseudonym from the secret/domain/epoch, recomputes `persistentCommit(record, randomness)`, checks registered membership and its epoch, and rejects revoked records. `proveIncomeTier` checks a nonzero, unused context, tier 1–3, and the private Uint64 salary against the corresponding threshold. Only the required epoch, commitment, context and tier are disclosed. All exported circuits return `[]`; the application reads their public state effect and transaction metadata rather than a returned salary or proof file.
+
+PayDrip uses private circuit parameters; it declares no separate Compact witness functions or business private-state ledger. The SDK's local encrypted LevelDB provider serves transaction plumbing. It should not be confused with browser-private payroll storage.
+
+## Architecture
+
+```text
+Organization → payroll epoch → private payroll record → randomized commitment
+                                                       ↓
+                                             PayDrip public ledger
+                                                       ↑
+Employee opening + secret → Compact proof → selective claim → verifier receipt
+
+1AM ↔ browser wallet/session (Preview address; not the circuit signer)
+Browser → loopback PayDrip API → local Preview operator → Midnight.js
+                                      → local proof server → PayDrip on Preview
+```
+
+Browser inputs stay in memory with explicit private-file downloads. Public state is read through the Preview indexer. The local service binds to loopback and protects writes with origin checks and a per-process session token. Unknown errors are sanitized. Do not host an employee's private proving path on an untrusted issuer/backend.
+
+[Terminal/circuit mapping](docs/WEB_TERMINAL.md) · [Protocol architecture](docs/ARCHITECTURE.md) · [Threat model](docs/PRIVACY.md).
+
+## User Flow
+
+### Organization
+
+**Network & contract → Connect local operator**. Wait for genuine synchronization and usable fee resources; organization actions require the existing local administrator vault. **Payroll periods → Generate → Open period**. Obtain the employee pseudonym, then **Records → Authorize compensation**: period, pseudonym, and salary in dollars (e.g. synthetic `5000.00`, converted to `500000` cents). **Prepare private record → Download private record → Register commitment**. Securely deliver the downloaded opening. Revoke while the period is open or close the period when issuance is complete.
+
+### Employee
+
+**My payroll → Create a private identity → Generate pseudonym → Download private identity** for that period. Keep the identity private; share only its pseudonym with the issuer. Import the private record and identity, then **Check my record**. In **Create a claim**, select **Monthly income eligibility → At least $3,000** or **Historical payroll membership**. Paste a fresh verifier context, review **Privacy Preview**, and **Generate and submit claim**. Show success only after the actual call confirms.
+
+### Verifier
+
+**Verify a claim → Generate request context**; give the context to the employee. After confirmation, paste the same context and **Check contract receipt**. The result exposes the accepted claim, context, linked handle and period/issuer information; no exact salary. A missing receipt is not proof of rejection.
+
+### Wallet and disconnect
+
+**Connect Wallet** uses the existing 1AM DApp Connector v4 adapter, validates Preview, and displays the actual public address. It is separate from **Connect local operator**, which executes transactions. Connector method presence is not evidence of working signing.
+
+**Disconnect** clears the browser application session and transient private inputs. Connector v4 has no revoke/disconnect API; extension permissions are managed in 1AM. Local operator disconnect stops its separate service wallet. Do not interpret either UI action as cancellation of a transaction already submitted.
+
+## Compact Circuits
+
+| Circuit | Purpose | Authorization |
+|---|---|---|
+| `openEpoch` | Open a unique payroll period | Administrator secret |
+| `registerRecord` | Authorize a commitment in an open period | Administrator secret |
+| `revokeRecord` | Revoke a registered handle in an open period | Administrator secret |
+| `proveEmployment` | Record historical membership | Matching employee secret/opening |
+| `proveIncomeTier` | Record eligibility for supported income tier | Matching employee secret/opening |
+| `closeEpoch` | Stop new registration/revocation | Administrator secret |
+
+## Midnight Deployment
+
+| Field | Recorded evidence |
+|---|---|
+| Network | Midnight Preview |
+| Contract | `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c` |
+| SDK deployment transaction ID | `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5` |
+| SDK-reported block | `1069550` |
+
+The public manifest is [deployment.preview.json](deployment.preview.json). The user previously verified indexed current and deployment state on their Mac. These are deployment evidence, **not** successful payroll-circuit evidence. SDK transaction IDs and indexer transaction hashes are different fields and must not be substituted without correlation.
+
+```sh
+npm run preview:verify
+```
+
+Successful output reports `network: preview`, the configured address, `currentStateIndexed: true` and `deploymentStateIndexed: true`. It verifies the existing deployment; it neither submits a transaction nor proves a claim has executed. This agent's restricted environment cannot currently reach Preview. Keep the existing deployment; no redeployment is needed for submission documentation.
+
+## Local Development
+
+Prerequisites: Node **24.11.1+** (`.nvmrc`), npm, Compact compiler **0.31.1**, and Docker. Proof image: `midnightntwrk/proof-server:8.1.0`. Existing operator credentials and administrator authorization are local prerequisites; never paste them into chat or add them to Git.
+
+```sh
 npm ci
 npm run paydrip:compile
 docker compose -f compose.preview.yml up -d
+curl -fsS http://127.0.0.1:6300/health
+npm run preview:verify
 npm run web:dev
 ```
 
-Open `http://127.0.0.1:5173` for the landing page and click **Launch App** to open `app/index.html`. The terminal binds to `127.0.0.1`, checks the browser origin and a per-process session token for writes, and reads the public deployment manifest. **Connect Wallet** requests access to the 1AM browser extension through Midnight DApp Connector v4, verifies the Preview network, and shows its public unshielded address. It does not use that wallet to sign or submit PayDrip contract calls. **Connect local operator** uses `.secrets/preview-wallet.seed` on that same machine; it never requests or returns the seed. The local wallet needs Preview NIGHT registered for DUST generation. Organization actions also require the existing local `.secrets/preview-admin.json`; a connected wallet alone does not grant administrator authorization. Employee claims need an independently held employee secret and private record opening. Run an employee terminal on the employee's own machine, not on an issuer-controlled server. The local service and proof server receive private inputs transiently during a claim; nothing is saved to browser storage.
+Open **http://127.0.0.1:5173/app/**. Reuse the existing local wallet/admin vault rather than generating a replacement for a funded operator. A fresh clone has no credentials; provisioning/funding/secure opening delivery require the account owner. Inspect the existing `preview:wallet`, `preview:status` and deployment tooling before provisioning a separate instance. `preview:deploy` is not part of the current demo procedure.
 
-The issuer must download the private record package **before** registration and deliver it through an authenticated private channel. The employee shares only their derived pseudonym with the issuer. Verifiers issue a fresh context and look up the finalized claim receipt by that context. The contract does not bind a context to a named verifier. See [the terminal's action inventory](docs/WEB_TERMINAL.md) for exact data and trust boundaries.
+`npm run preview:wallet-check` starts/stops the same service wallet without transactions and provides bounded, public synchronization diagnostics. Connection, strict synchronization and funding are separate. Both streams must synchronize; positive spendable DUST still requires an actual SDK fee estimate. The DUST stall reported on the user's Mac remains a runtime gate; diagnostics distinguish event replay from resources and time out after 15 minutes. See [diagnostic interpretation](docs/testing/README.md#dust-synchronization-diagnostics).
 
-`npm run web:typecheck`, `npm run web:check`, `npm run web:test`, and `npm run web:build` validate the web code. `dist/web` is a static asset build; contract operations require the local Node service started by `web:dev` and are not available from static hosting alone.
+To stop the proof server: `docker compose -f compose.preview.yml down`.
 
-## Vercel hosting
+## Testing
 
-`vercel.json` builds and serves `dist/web`. The landing page and terminal interface can be hosted on Vercel. The hosted terminal can connect to 1AM and display a Preview address, but is labeled as an interface preview and disables contract actions. The local wallet, administrator vault, proof server, and private record operations are **not** deployed to Vercel. To make payroll calls, run `npm run web:dev` and the proof server on a machine you control. `.vercelignore` excludes local secrets and protocol server code from CLI uploads.
+```sh
+# Screenshot-friendly: real named protocol tests (compile first)
+npm run paydrip:test -- --reporter=verbose
 
-## Public and private model
-
-The ledger exposes organization and deployment-domain identifiers, admin authenticator, USD unit, epoch status, randomized record commitments, revocations, and successful claim receipts. Claim receipts expose the associated record handle, so claims for the same record can be linked. Exact salary, employee secret, and commitment randomness remain private inputs. The employer already knows the salary it issues. The actual generated call payload and disclosure surface require a network inspection before making stronger privacy claims.
-
-## Compact circuits
-
-`openEpoch`, `registerRecord`, `revokeRecord`, `proveEmployment`, `proveIncomeTier`, `closeEpoch`. V1 uses USD monthly salary in cents and tiers of $3,000, $5,000, and $10,000. Employment means inclusion in a historical payroll epoch, not current employment.
-
-## Prerequisites
-
-- Node.js 24.11.1 or later and npm.
-- [Compact devtools and compiler](https://docs.midnight.network/relnotes/support-matrix): checked with devtools 0.5.1 and compiler 0.31.1.
-- Docker with enough disk space for the proof server and its initial proving-key downloads.
-- A funded **Preview** NIGHT wallet; NIGHT must be registered for DUST generation before deployment. See the [official funding guide](https://docs.midnight.network/guides/acquire-tokens).
-
-## Exact Preview commands
-
-From a terminal after cloning the repository:
-
-```bash
-git clone https://github.com/swarupasaha2005-hue/motumon.git PayDrip
-cd PayDrip
-npm ci
-npm run paydrip:compile
-npm run paydrip:test
-npm run preview:wallet
+# Complete deterministic compile/check/typecheck/test/build gate
+npm run validate
 ```
 
-Back up the generated seed securely, then fund the printed **unshielded Preview address** at the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/). After the faucet transfer arrives, continue:
+At the latest local validation: **8 contract tests and 61 application tests passed**. Contract tests execute generated Compact logic off chain, covering authorization, commitment integrity, private-input mismatch, income boundaries, replay, revocation and closure. Application tests cover wallet/operator lifecycle, action gating, public serialization, error redaction and runner/readiness logic with mocked network boundaries. They do not establish network execution.
 
-```bash
-docker compose -f compose.preview.yml up -d
-until curl -fsS http://127.0.0.1:6300/health; do sleep 5; done
-npm run preview:status
-npm run preview:deploy
-```
+Controlled 70-participant tooling is synthetic integration testing, **not human traction**, and is not a Level 3 prerequisite. No bulk completion is claimed.
 
-`preview:wallet` prints only the unshielded Preview address. Its seed is generated once in `.secrets/preview-wallet.seed` with mode 600 and is Git-ignored. Back it up securely before funding. Fund **that address** using the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/); do not paste a seed into the faucet or chat. `preview:status` reports an initial wallet observation, which may precede full sync. `preview:deploy` registers NIGHT for DUST if necessary, waits for spendable DUST, then submits the PayDrip deployment. It prints and locally stores the actual contract address and transaction details only after the network returns them. This repository's wallet has already deployed the contract below; the script refuses a second deployment while its local manifest contains an address. Preview DNS was intermittent during deployment, so the script supports `PAYDRIP_RPC_IP` and `PAYDRIP_INDEXER_IP` overrides using current DNS answers when needed.
+### Test Screenshot
 
-The administrator secret and encrypted private-state password are generated into Git-ignored `.secrets/` files. Back them up securely; losing them can prevent future payroll administration or contract maintenance. The deployment-domain and organization IDs are random public identifiers. The deployed contract address is distinct from the funding wallet address.
+The supplied PayDrip screenshot shows **8 passing protocol tests**. These execute generated Compact logic off chain; they are not network transaction evidence. The source-map warning shown did not fail the tests.
 
-To stop the local proof server:
+![PayDrip protocol test output showing eight passing tests](docs/images/paydrip-protocol-tests.png)
 
-```bash
-docker compose -f compose.preview.yml down
-```
+<details>
+<summary>Compilation reference from another project — SecretBid</summary>
 
-## Tests and limitations
+This supplied image shows **SecretBid's five auction circuits**, not PayDrip's six payroll circuits. It is included as a reference only and must not be submitted as PayDrip compilation evidence.
 
-`npm run paydrip:test` covers authorized mutation, wrong salary/secret/randomness, tier boundaries, context replay, revocation, and closure. The current tests execute generated Compact logic off chain. `npm run web:test` covers local record validation, public-state serialization, error redaction, and origin enforcement. A real deployment transaction and indexed contract state have been verified on Preview; payroll circuit calls from the terminal have not been tested there. There is no confidential payment feature. Issuer honesty, secure delivery of payroll openings, wallet/transaction metadata, threshold probing, and post-close historical claim semantics remain explicit limitations. See the architecture's threat model and validation gates.
+![SecretBid compilation reference showing five auction circuits; not PayDrip evidence](docs/images/secretbid-compile-reference.png)
 
-## Deployment evidence
+</details>
 
-**Network:** Preview. **PayDrip contract address:** `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c`. **Deployment transaction:** `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`. **Block height:** `1069550`. The deployment SDK returned these values on 2026-09-29. Run `npm run preview:verify` to query both current and deployment state from the Preview indexer using the public `deployment.preview.json` manifest. This confirms the contract address is indexed; the transaction ID and block height remain values reported by the deployment SDK. The funding wallet is `mn_addr_preview1fpcx7ql99zdlhxt4swdahv3ja73806au5eqqgmay4cq7f72jxwrq8t5rst`; it is not the contract address. The local deployment manifest is Git-ignored at `.secrets/preview-deployment.json`.
+## CI/CD
 
-## Wallet
+[PayDrip CI](.github/workflows/ci.yaml) runs on **every push**, pull request and manual dispatch: checkout, pinned Compact installation, Node setup, `npm ci`, `npm run validate`, whitespace and script syntax checks. Node comes from `.nvmrc`; compiler 0.31.1 and action commit references are pinned. No wallet credentials or Preview transactions are required. Static frontend deployment is configured separately by [vercel.json](vercel.json); this workflow does not deploy contracts or automatically operate wallets.
 
-PayDrip uses **1AM Wallet** on **Midnight Preview**. Click **Connect Wallet** in the terminal header, approve the request in 1AM, and check the connected Preview address. The header shows the actual public address in abbreviated form; use Copy or Network & contract for the full address. The adapter checks the connector version, connected network, and Preview address before displaying success. Missing extensions, locked wallets, rejected approvals, and timeouts produce safe messages. Install 1AM from its [official website](https://1am.xyz/).
+The badge above links to the configured repository/workflow. A hosted passing run for these uncommitted changes is **not verified**. Publish only after authorization, inspect the actual Actions result, and record its URL in the submission pack. The latest web lookup showed a minimal public repository view inconsistent with local history, so publication of the complete current project also needs confirmation.
 
-**Disconnect** clears the application's connector reference, address, and transient private payroll inputs. Connector v4 has no disconnect/revoke method, so this does not revoke extension permission; manage site access within 1AM. A late approval after cancellation cannot reconnect the page. Returning to the tab checks for a changed wallet account or network and clears the session if it changed.
+## Security & Privacy Notes
 
-PayDrip detects whether balancing, submission, public-key, configuration, data-signing, and delegated-proving methods are exposed by the connected connector. **Method presence is not a successful transaction test.** 1AM advertises DApp Connector v4, but its transaction methods have not been exercised by this app. The browser session currently supplies public identity/network information; it does not sign PayDrip circuit calls.
+Never publish private identity/opening files, wallet credentials, administrator secret, randomness or private-state password. `.secrets/`, `.env*`, local SDK database output and managed artifacts are ignored. `.vercelignore` excludes local credentials and proving/server code. Use only marked synthetic compensation in a recording; keep real payroll data and all secret file contents off screen.
 
-### Transaction executor and hosted limitations
+The [threat model](docs/PRIVACY.md) documents issuer trust, record substitution, replay, lifecycle, probing, linkage and local prover trust. Runtime privacy inspection must examine the decoded schema/receipt and available public transaction representation, not merely search for a literal salary number. A full payroll claim and public payload inspection remain unverified.
 
-The current real circuit path remains:
+## Repository Structure
 
-```text
-Browser → loopback PayDrip service → local Preview operator wallet
-        → Midnight.js → local proof server → PayDrip on Preview
-```
+| Path | Contents |
+|---|---|
+| `contract/src/paydrip.compact` | Six circuits and public ledger |
+| `contract/src/test/` | Generated-circuit protocol tests |
+| `apps/web/app/` | Existing terminal, wallet adapter and UI tests |
+| `apps/web/server/` | Loopback API, operator/provider code and tests |
+| `scripts/` | Deployment verification and diagnostic/integration tools |
+| `docs/PRIVACY.md` | Disclosures and threat model |
+| `docs/submission/` | Level 3 proposal copy, video plan, audit and submission pack |
+| `.github/workflows/` | Deterministic CI and security scanning |
 
-The local operator uses the existing ignored wallet file on the user's machine. It is distinct from the connected 1AM account. Circuit buttons require this operator connection and prevent concurrent calls. Pure navigation and the 1AM connection work independently. A connected browser wallet does not confer issuer/employee authorization: the Compact contract checks the relevant private secret.
+## Product Proposal
 
-The production static build includes the public Preview deployment manifest and Connect Wallet controls. Contract calls and receipt lookup remain disabled there because the implementation needs the loopback service, filesystem ZK artifacts, and local proof server. It does not send private payroll inputs to Vercel. Removing this restriction requires a browser Midnight.js provider integration, not a UI flag change. The landing page has not been redesigned.
+[PayDrip — Private Payroll / Splits](docs/LEVEL3_PRODUCT_PROPOSAL.md). **Approval status: Pending; submission not evidenced.** Copy [the prepared form text](docs/submission/LEVEL3_PROPOSAL_SUBMISSION.md) into the program's actual approval form; no approval or form URL is invented.
 
-### Income eligibility and privacy
+## Level 3 Submission
 
-PayDrip allows the holder of an authorized private payroll record and matching employee secret to prove that the record satisfies a published monthly income tier without putting the exact salary in public ledger state. Supported tiers are **$3,000**, **$5,000**, and **$10,000**, represented in USD cents by the contract.
+Use [LEVEL3_SUBMISSION.md](docs/submission/LEVEL3_SUBMISSION.md) as the submission source of truth and [the checklist](docs/submission/LEVEL3_CHECKLIST.md) for outstanding gates. The [commit audit](docs/submission/LEVEL3_COMMIT_AUDIT.md) verifies 18 substantive commits in local history, exceeding ten; remote publication/reviewer acceptance is separate.
 
-**Public:** organization/deployment context, payroll epoch, record commitment, revocation state, claim context, selected tier, linked record handle, and transaction metadata.
+**Not yet fully ready:** a confirmed Preview payroll proof/verifier flow, current live-build/publication checks, passing hosted CI, proposal approval and a recorded one-minute video remain outstanding. The supplied passing-test screenshot is included above. No Preview/Preprod migration or 50/70-user evidence is required by this Level 3 pass.
 
-**Private inputs:** exact monthly salary, employee secret, and commitment randomness. The local service and local proof server receive these inputs while checking/proving; this is a local trust boundary, not privacy from the issuer or prover. Browser inputs remain in memory, with explicit private-file downloads for backup and delivery. Salary can be revealed only in a marked local input panel, never copied from public results. No browser storage or analytics is used for these values.
+## License
 
-Results display transaction/block identifiers only if returned by the successful generated circuit call. No proof or transaction success is simulated. Repeated tier requests can reveal a salary band; record handles link claims; the issuer can attest inaccurate payroll data; historical membership is not current employment; PayDrip does not transfer salaries or prove payment.
-
-### Demo sequence
-
-1. Open PayDrip, Launch App, and connect 1AM through the header. Show the real address and Preview label.
-2. For a real circuit demonstration, run `npm run web:dev` locally with generated artifacts and the local proof server running. In Network & contract, connect the **local Preview operator**, explicitly identifying it as the transaction executor.
-3. In My payroll, import a legitimately registered private record and matching identity. Use clearly identified demo payroll data for recording; never record employee secrets, private files, or real employee salary.
-4. In Create a claim, optionally reveal the demo salary in the private input panel, choose a supported tier, and supply a fresh verifier context. Review Privacy Preview.
-5. Generate and submit the claim. Wait for the actual circuit result; show its Preview contract, transaction and block if provided. Check the accepted public receipt under Verify a claim. Exact salary is absent from the public result.
-6. Disconnect 1AM and show that the app session/private inputs are cleared. This does not stop an already submitted local-operator transaction.
-
-The hosted circuit path, real 1AM approval, real terminal network call, public payload inspection, and demo video still require runtime evidence. Do not present static illustrations or passing off-chain tests as proof of those steps.
-
-## Further work
-
-Exercise terminal circuits on Preview and inspect actual transaction/public state. Wire browser-side Midnight.js providers to tested 1AM transaction capabilities before enabling hosted user transactions. Add authenticated employer-to-employee opening delivery. Validate the current submission's wallet/network acceptance separately from application behavior.
+[Apache License 2.0](LICENSE).
