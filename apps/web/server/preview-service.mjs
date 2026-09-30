@@ -1,12 +1,16 @@
 import { randomBytes } from 'node:crypto';
+import { operatorDiagnostics, waitForOperatorSync, OperatorSyncError } from './operator-readiness.mjs';
+import { OperatorSession, OperatorConnectionError } from './operator-session.mjs';
+import { networkConfiguration, assertDeploymentNetwork } from '../../../scripts/lib/network-config.mjs';
 import { mkdir, open, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { firstValueFrom, filter, timeout } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { WebSocket } from 'ws';
-import { FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
+import { WalletFactory, WalletSeeds } from '@midnight-ntwrk/testkit-js';
+import { createKeystore, InMemoryTransactionHistoryStorage, WalletEntrySchema, mergeWalletEntries } from '@midnight-ntwrk/wallet-sdk';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { DustSecretKey, LedgerParameters, ZswapSecretKeys } from '@midnight-ntwrk/midnight-js-protocol/ledger';
+import { DustSecretKey, LedgerParameters, ZswapSecretKeys, unshieldedToken } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { ttlOneHour } from '@midnight-ntwrk/midnight-js-utils';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
@@ -23,18 +27,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const secretDir = path.join(root, '.secrets');
 const assets = path.join(root, 'contract/src/managed/paydrip');
 const deployment = JSON.parse(await readFile(path.join(root, 'deployment.preview.json'), 'utf8'));
-if (deployment.network !== 'preview' || !/^[0-9a-f]{64}$/.test(deployment.contractAddress)) {
-  throw new Error('The public Preview deployment manifest is invalid.');
-}
+assertDeploymentNetwork(deployment, 'preview');
 
-const environment = {
-  walletNetworkId: 'preview', networkId: 'preview',
-  indexer: 'https://indexer.preview.midnight.network/api/v4/graphql',
-  indexerWS: 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
-  node: 'https://rpc.preview.midnight.network',
-  nodeWS: 'wss://rpc.preview.midnight.network',
-  proofServer: 'http://127.0.0.1:6300',
-};
+const environment = networkConfiguration('preview');
 const publicDataProvider = indexerPublicDataProvider(environment.indexer, environment.indexerWS, WebSocket);
 const hex64 = /^[0-9a-f]{64}$/i;
 const toHex = (bytes) => Buffer.from(bytes).toString('hex');
@@ -147,6 +142,8 @@ async function health(url) {
 }
 
 export function friendlyError(error) {
+  if (error instanceof OperatorSyncError) return error.message;
+  if (error instanceof OperatorConnectionError) return error.message;
   if (error instanceof InputError) return error.message;
   const known = ['Unauthorized', 'Epoch exists', 'Epoch not open', 'Unknown epoch', 'Unknown record', 'Wrong epoch',
     'Wrong domain', 'Wrong organization', 'Wrong currency', 'Invalid salary', 'Duplicate record', 'Already revoked',
@@ -160,10 +157,62 @@ export function friendlyError(error) {
   return 'The operation did not complete. No success has been recorded in this terminal.';
 }
 
+// Public SDK factory configuration; no credentials enter this helper.
+export function previewOperatorConfiguration() {
+  return {
+    indexerClientConnection:{indexerHttpUrl:environment.indexer,indexerWsUrl:environment.indexerWS},
+    provingServerUrl:new URL(environment.proofServer),networkId:environment.walletNetworkId,relayURL:new URL(environment.nodeWS),
+    txHistoryStorage:new InMemoryTransactionHistoryStorage(WalletEntrySchema,mergeWalletEntries),
+    costParameters:{feeBlocksMargin:5},
+    // Match the existing Preview deployment tool. This changes catch-up pacing,
+    // never the event cursor, verification, funding, or strict completion rule.
+    batchUpdates:{size:100,timeout:10,spacing:0},
+  };
+}
+
+async function buildPreviewOperator() {
+  let seed;
+  try { seed = (await readFile(path.join(secretDir, 'preview-wallet.seed'), 'utf8')).trim(); }
+  catch (error) {
+    throw new OperatorConnectionError(error.code === 'ENOENT'
+      ? 'Local Preview wallet seed file is missing. Restore your existing wallet backup; do not replace a funded wallet.'
+      : 'Local Preview wallet seed file could not be read. Check its permissions.');
+  }
+  if (!hex64.test(seed)) throw new OperatorConnectionError('Local Preview wallet seed file has an invalid format. Expected 64 hexadecimal characters.');
+  // Same exported SDK factory used by FluentWalletBuilder, with explicit replay
+  // batching rather than access to the builder's private config field.
+  const seeds=WalletSeeds.fromMasterSeed(seed);
+  const keystore=createKeystore(seeds.unshielded,environment.walletNetworkId);
+  const configuration=previewOperatorConfiguration();
+  const children=[];
+  let wallet;
+  try {
+    const shielded=WalletFactory.createShieldedWallet(configuration,seeds.shielded);children.push(shielded);
+    const unshielded=WalletFactory.createUnshieldedWallet(configuration,keystore);children.push(unshielded);
+    const dust=WalletFactory.createDustWallet(configuration,seeds.dust,{
+      ledgerParams:LedgerParameters.initialParameters(),additionalFeeOverhead:1000n,feeBlocksMargin:5,
+    });children.push(dust);
+    wallet=await WalletFactory.createWalletFacade(configuration,shielded,unshielded,dust);
+  } catch {
+    await Promise.allSettled(children.map(child=>child.stop()));
+    throw new OperatorConnectionError('Local Preview wallet factory initialization failed.');
+  }
+  try {
+    const zswapSecretKeys = ZswapSecretKeys.fromSeed(seeds.shielded);
+    const dustSecretKey = DustSecretKey.fromSeed(seeds.dust);
+    const address = keystore.getBech32Address().asString();
+    return { wallet, address, keys: { keystore, zswapSecretKeys, dustSecretKey, address },
+      start: () => wallet.start(zswapSecretKeys, dustSecretKey) };
+  } catch {
+    await wallet.stop().catch(() => {});
+    throw new OperatorConnectionError('Local Preview wallet key initialization failed.');
+  }
+}
+
 export class PreviewService {
-  #wallet = null;
-  #walletKeys = null;
-  #connectPromise = null;
+  #operator = new OperatorSession(buildPreviewOperator);
+  get #wallet() { return this.#operator.active?.wallet ?? null; }
+  get #walletKeys() { return this.#operator.active?.keys ?? null; }
 
   get contractAddress() { return deployment.contractAddress; }
 
@@ -178,38 +227,23 @@ export class PreviewService {
 
   async state() { return publicState(); }
 
-  walletInfo() { return { connected: !!this.#wallet, address: this.#walletKeys?.address ?? null }; }
+  walletInfo() { return this.#operator.info(); }
 
-  async connect() {
-    if (this.#wallet) return this.walletInfo();
-    if (this.#connectPromise) return this.#connectPromise;
-    this.#connectPromise = (async () => {
-      const seed = (await readFile(path.join(secretDir, 'preview-wallet.seed'), 'utf8')).trim();
-      if (!hex64.test(seed)) throw new InputError('The local Preview wallet file is invalid.');
-      const builder = FluentWalletBuilder.forEnvironment(environment).withDustOptions({
-        ledgerParams: LedgerParameters.initialParameters(), additionalFeeOverhead: 1_000n, feeBlocksMargin: 5,
-      }).withSeed(seed);
-      const { wallet, seeds, keystore } = await builder.buildWithoutStarting();
-      const zswapSecretKeys = ZswapSecretKeys.fromSeed(seeds.shielded);
-      const dustSecretKey = DustSecretKey.fromSeed(seeds.dust);
-      try { await wallet.start(zswapSecretKeys, dustSecretKey); }
-      catch (error) { await wallet.stop().catch(() => {}); throw error; }
-      this.#wallet = wallet;
-      this.#walletKeys = { keystore, zswapSecretKeys, dustSecretKey, address: keystore.getBech32Address().asString() };
-      return this.walletInfo();
-    })();
-    try { return await this.#connectPromise; }
-    catch (error) {
-      if (error.code === 'ENOENT') throw new InputError('No local Preview wallet is available. Run npm run preview:wallet first.');
-      throw error;
-    } finally { this.#connectPromise = null; }
+  connect() { return this.#operator.connect(); }
+
+  disconnect() { return this.#operator.disconnect(); }
+
+  // Read-only observation for the local diagnostic; never returns keys or inputs.
+  async operatorObservation() {
+    if (!this.#wallet) throw new OperatorConnectionError('Connect the local Preview operator first.');
+    const state = await firstValueFrom(this.#wallet.state().pipe(timeout({ first: 30_000 })));
+    return operatorDiagnostics(state,this.walletInfo(),unshieldedToken().raw);
   }
 
-  async disconnect() {
-    if (this.#wallet) await this.#wallet.stop();
-    this.#wallet = null;
-    this.#walletKeys = null;
-    return this.walletInfo();
+  async waitForOperatorSynchronization(onObservation = (_value) => {}, timeoutMs = 900_000) {
+    if (!this.#wallet) throw new OperatorConnectionError('Connect the local Preview operator first.');
+    return waitForOperatorSync(this.#wallet.state(),
+      state=>operatorDiagnostics(state,this.walletInfo(),unshieldedToken().raw),{onObservation,timeoutMs});
   }
 
   async derivePseudonym(input) {
@@ -256,10 +290,7 @@ export class PreviewService {
     const args = await this.#arguments(action, input);
     if (!(await health(`${environment.proofServer}/health`))) throw new InputError('Start the local proof server on port 6300 before submitting.');
     setStage('Synchronizing the local Preview wallet');
-    await firstValueFrom(this.#wallet.state().pipe(
-      filter((state) => state.unshielded.progress?.isStrictlyComplete?.() && state.dust.state.progress?.isStrictlyComplete?.()),
-      timeout({ first: 900_000 }),
-    ));
+    await this.waitForOperatorSynchronization();
     const { keystore, zswapSecretKeys, dustSecretKey, address } = this.#walletKeys;
     const provider = {
       getCoinPublicKey: () => zswapSecretKeys.coinPublicKey,

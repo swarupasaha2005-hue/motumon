@@ -27,10 +27,15 @@ describe('local terminal privacy boundaries', () => {
       organization: bytes('2'), domain: bytes('1'), currency: Uint8Array.from(Buffer.from('USD')),
       epochs: [[epoch, 1n]], records: [[commitment, epoch]], revoked: [],
       claims: [[context, 2n]], claimRecords: { lookup: () => commitment },
+      monthlySalaryMinor: 'synthetic-private-marker', employeeSecret: 'synthetic-private-marker',
+      randomness: 'synthetic-private-marker', adminSecret: 'synthetic-private-marker',
+      seed: 'synthetic-private-marker', privateStatePassword: 'synthetic-private-marker',
     });
     expect(result.epochs[0].status).toBe('Open');
     expect(result.claims[0]).toMatchObject({ context: h('6'), tier: 2, commitment: h('5'), epoch: h('3') });
-    expect(JSON.stringify(result)).not.toMatch(/salary|secret|randomness/i);
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toMatch(/salary|secret|randomness|seed|password|privateState/i);
+    expect(serialized.includes('synthetic-private-marker')).toBe(false);
   });
 
   it('does not return private values from unknown SDK errors', () => {
