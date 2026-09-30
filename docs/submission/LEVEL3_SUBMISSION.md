@@ -21,7 +21,7 @@
 | Privacy | Private opening/secret comparison; public tier/context/linked handle; issuer and local prover trust, linkage and probing limits |
 | Product proposal | `docs/LEVEL3_PRODUCT_PROPOSAL.md`; prepared, submission not evidenced, approval pending |
 | Meaningful commits | 18 selected local commits; uncommitted work excluded; remote publication pending confirmation |
-| Demo video URL | Not recorded / not supplied — add actual uploaded URL only |
+| Demo video | [Supplied screen recording](../videos/paydrip-demo.mov), Git LFS; publication and full-functionality evidence review pending |
 | Test screenshot | [Supplied PayDrip output: 8 passing tests](../images/paydrip-protocol-tests.png); saved locally, public publication pending |
 | Proposal submission / approval | No reference, date or approval evidence supplied |
 
@@ -57,7 +57,8 @@ The circuit authenticates the employee secret, private record opening and issuer
 - [ ] Submitted revision has a genuinely passing GitHub Actions run.
 - [ ] Proposal submitted and approved; real references recorded.
 - [x] Supplied passing PayDrip test screenshot saved and linked; publish with submission.
-- [ ] Actual approximately one-minute full-functionality video uploaded and linked.
+- [x] Supplied screen recording saved with Git LFS and linked.
+- [ ] Full-functionality video evidence reviewed and publicly accessible.
 
 No synthetic feedback/users or 70-participant completion is required for this Level 3 submission.
 
@@ -82,7 +83,7 @@ READY describes the cited repository evidence only. NEEDS EXTERNAL ACTION is a m
 | Live demo | NEEDS EXTERNAL ACTION | Configured interface URL; network verification unavailable | Verify current assets/access; disclose local circuit mode |
 | Test screenshot | READY | Supplied screenshot shows 8 passing PayDrip protocol tests | Publish with submission |
 | CI badge | READY | Actual remote/workflow badge link | Confirm hosted status |
-| 1-minute demo video | NEEDS EXTERNAL ACTION | Conditional real-functionality script | Complete runtime gate, record/upload |
+| 1-minute demo video | NEEDS EXTERNAL ACTION | Supplied MOV recording linked; functionality/duration unverified | Review content against real runtime evidence and publish |
 | Privacy Model section | READY | README private/public/verifier/observer/limitations | Retain honest scope |
 | Deployment evidence | READY | Public manifest plus previously reported Mac indexing | Recheck current deployment on accessible host if needed; no redeploy |
 

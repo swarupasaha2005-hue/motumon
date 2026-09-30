@@ -40,7 +40,8 @@ This checklist concerns Level 3 only. Controlled 70-participant activity is not 
 - [x] Configured live interface URL documented.
 - [ ] Current live landing/app/assets, protection status and wallet flow independently verified.
 - [x] Approximately one-minute recording script prepared, conditional on real functionality.
-- [ ] Full-functionality video recorded/uploaded; genuine URL added.
+- [x] Supplied screen recording saved at `docs/videos/paydrip-demo.mov` using Git LFS and linked.
+- [ ] Recording verified to demonstrate full functionality; public publication/access confirmed.
 - [x] At least ten meaningful local commits verified: 18 conservatively selected.
 - [ ] Submission links and commit publication checked against the final remote revision.
 
@@ -60,6 +61,6 @@ Statuses: PASS = direct repository evidence; PARTIAL = implementation/preparatio
 | Live demo | PARTIAL | Configured Vercel interface URL; static safety preserved | Verify current public build; disclose local circuit mode |
 | Test screenshot | PASS | `docs/images/paydrip-protocol-tests.png` shows 8 passing tests | Publish with submission |
 | CI badge/workflow + passing run | PARTIAL | Actual badge/workflow path | Confirm run for submission revision |
-| One-minute full-functionality video | MISSING | Conditional script prepared | Resolve runtime gate; record/upload |
+| One-minute full-functionality video | PARTIAL | Supplied MOV linked; full-functionality/duration unverified | Review against real runtime evidence and publish |
 | README Privacy Model | PASS | Public/private, observer/verifier knowledge and limitations | Keep runtime evidence qualification |
 | Proposal submitted | MISSING | Paste-ready text only | Actual submission reference |

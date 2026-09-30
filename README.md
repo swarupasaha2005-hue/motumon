@@ -18,7 +18,9 @@ For real Preview circuit execution, use [Local Development](#local-development).
 
 ## Demo Video
 
-**Not recorded / no video URL supplied.** Use the [60-second recording script](docs/submission/LEVEL3_DEMO_SCRIPT.md) after the real Preview flow succeeds. Do not substitute illustrations or mocked tests for a confirmed claim.
+[Watch / download the PayDrip demo video](docs/videos/paydrip-demo.mov).
+
+The supplied screen recording is stored with Git LFS (MOV, approximately 121 MiB). If cloning without automatic LFS downloads, run `git lfs pull`. Its presence does not establish successful Preview circuit execution; the runtime evidence gates below remain unverified.
 
 ## Why PayDrip
 
@@ -236,7 +238,7 @@ The [threat model](docs/PRIVACY.md) documents issuer trust, record substitution,
 
 Use [LEVEL3_SUBMISSION.md](docs/submission/LEVEL3_SUBMISSION.md) as the submission source of truth and [the checklist](docs/submission/LEVEL3_CHECKLIST.md) for outstanding gates. The [commit audit](docs/submission/LEVEL3_COMMIT_AUDIT.md) verifies 18 substantive commits in local history, exceeding ten; remote publication/reviewer acceptance is separate.
 
-**Not yet fully ready:** a confirmed Preview payroll proof/verifier flow, current live-build/publication checks, passing hosted CI, proposal approval and a recorded one-minute video remain outstanding. The supplied passing-test screenshot is included above. No Preview/Preprod migration or 50/70-user evidence is required by this Level 3 pass.
+**Not yet fully ready:** a confirmed Preview payroll proof/verifier flow, current live-build/publication checks, passing hosted CI, proposal approval and full-functionality video evidence review remain outstanding. The supplied recording and passing-test screenshot are linked above. No Preview/Preprod migration or 50/70-user evidence is required by this Level 3 pass.
 
 ## License
 
