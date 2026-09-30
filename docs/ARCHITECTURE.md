@@ -1,5 +1,7 @@
 # PayDrip — V1 protocol architecture
 
+**Reading guide:** this document retains the original design proposals. Implemented behavior is authoritative in [PRIVACY.md](PRIVACY.md), the Compact source and [WEB_TERMINAL.md](WEB_TERMINAL.md). Proposed tier-policy versions, network/address binding, private-root membership, encrypted opening delivery and verifier policies are not implemented.
+
 **Status:** design plus first implementation, 29 September 2026. Six circuits compile and pass focused off-chain tests. The constructor was deployed to Preview at `3094e6e6e6dc2a5f91b09859a5e5b1ec8df41a9aad1511570006141c98d6ec7c` in transaction `002c3679d87f1de6b7c380547088f83f5b082d3ee1a59d0bcd45519d960ed32aa5`, block `1069550`. A separate indexer query returned contract state. A local web terminal is now wired to the circuits, but payroll circuit calls and transaction disclosure still need live Preview validation.
 
 **Product statement:** Payroll belongs on-chain. Salaries don't. V1 proves an employer-issued payroll record and an income threshold. It does **not** transfer compensation or prove that a salary was paid.
@@ -39,7 +41,7 @@ The first implementation passes the admin secret, employee secret, and full reco
 
 These are specifications, not claimed Compact syntax. Every state update must be asserted in-circuit.
 
-| Circuit | Authorization / private witness | Public input and state / transition | Disclosure and failures |
+| Circuit | Authorization / private circuit input | Public input and state / transition | Disclosure and failures |
 | --- | --- | --- | --- |
 | `openEpoch` | Admin secret preimage matches sealed authenticator | Epoch ID; require absent; create `OPEN` | Reveals epoch timing; reject wrong secret or duplicate ID. |
 | `registerRecord` | Admin secret; private record opening; private employee pseudonym value supplied by employee | Epoch ID and resulting randomized commitment; require `OPEN`, correct org/unit/policy, unused handle; insert | Reveals handle and registration timing; reject wrong admin, duplicate, malformed field or closed epoch. Employer can issue false payroll records: issuer trust remains. |
@@ -60,7 +62,7 @@ Use fixed-width unsigned integer salary units and bound-check their range before
 
 ## 11. Replay and nullifiers
 
-Employment and threshold proofs are reusable claims. Repeating the same successful historical statement is not a double spend, so V1 has no employee or record nullifier. Every verifier request contains a fresh unpredictable context ID and identifies the contract, epoch, claim kind, tier, and verifier; the claimant reviews it before proving. A verifier must reject a transaction for a different context or an old context. If a service needs exactly one accepted receipt per request, a public consumed-request set may be added, but this creates a visible request identifier and should not become a global employee identifier. Chain-finalized claims remain on chain and can be replayed as screenshots; a verifier must query the chain and check its own context.
+Employment and threshold proofs are reusable claims. Repeating the same successful historical statement is not a double spend, so V1 has no employee or record nullifier. The UI generates a fresh context for an off-chain verifier request. The implemented contract enforces nonzero context and global context uniqueness, but does not authenticate a named verifier or bind a signed request policy. A verifier must reject a transaction for a different context or an old context. If a service needs exactly one accepted receipt per request, a public consumed-request set may be added, but this creates a visible request identifier and should not become a global employee identifier. Chain-finalized claims remain on chain and can be replayed as screenshots; a verifier must query the chain and check its own context.
 
 ## 12. `disclose()` map
 
@@ -93,7 +95,7 @@ Repository root is `PayDrip/`. It contains the PayDrip Compact source and tests 
 
 1. **Toolchain spike:** install the compatibility-matrix compiler; compile a minimal typed `persistentCommit` record and authenticated set membership; inspect generated bindings, verifier keys, ZKIR, public call data, and `disclose()` behavior. Resolve contract-domain availability and claim-handle linkage before freezing schema.
 2. **Protocol:** six PayDrip circuits and focused off-chain tests are implemented. Maintain a field-by-field disclosure audit and extend negative tests for forged records and identity substitution.
-3. **Client:** encrypted local employee/admin state, authenticated record delivery, explicit consent, verifier context checking; then a real wallet-connected web UX. No server receives secrets.
+3. **Client:** encrypted local employee/admin state, authenticated record delivery, explicit consent, verifier context checking; then a real wallet-connected web UX. The loopback service and local proof server receive private proving inputs. Browser-only proving and encrypted opening delivery are not implemented.
 4. **Network:** the Preview constructor deployment and indexer state check are complete. Exercise all payroll circuits on Preview, inspect public transaction data and an explorer, then test Preprod if required by the current program.
 5. **Independent security review and regression:** inspect witness trust, access control, compiled disclosure, public traces, and secret-handling paths; fix and rerun targeted tests.
 
