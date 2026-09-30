@@ -52,6 +52,47 @@ function setup() {
 }
 
 describe('PayDrip protocol', () => {
+  it('rejects unauthorized closure and revocation, including post-close mutation', () => {
+    const s = setup();
+    s.call('openEpoch', s.epoch, s.adminSecret);
+    s.call('registerRecord', s.record, s.randomness, s.adminSecret);
+    const commitment = [...s.state().records][0][0];
+    expect(() => s.call('closeEpoch', s.epoch, b32())).toThrow();
+    expect(() => s.call('revokeRecord', commitment, s.epoch, b32())).toThrow();
+    expect(() => s.call('revokeRecord', b32(), s.epoch, s.adminSecret)).toThrow();
+    s.call('closeEpoch', s.epoch, s.adminSecret);
+    expect(() => s.call('closeEpoch', s.epoch, s.adminSecret)).toThrow();
+    expect(() => s.call('revokeRecord', commitment, s.epoch, s.adminSecret)).toThrow();
+    expect(s.state().revoked.size()).toBe(0n);
+  });
+
+  it('rejects an unissued record and shares context uniqueness across both claim types', () => {
+    const s = setup();
+    s.call('openEpoch', s.epoch, s.adminSecret);
+    expect(() => s.call('proveEmployment', s.record, s.randomness, s.employeeSecret, b32())).toThrow();
+    s.call('registerRecord', s.record, s.randomness, s.adminSecret);
+    const request = b32();
+    s.call('proveEmployment', s.record, s.randomness, s.employeeSecret, request);
+    expect(() => s.call('proveIncomeTier', s.record, s.randomness, s.employeeSecret, 1n, request)).toThrow();
+    const secondRequest = b32();
+    s.call('proveIncomeTier', s.record, s.randomness, s.employeeSecret, 1n, secondRequest);
+    expect(hex(s.state().claimRecords.lookup(request))).toBe(hex(s.state().claimRecords.lookup(secondRequest)));
+    expect(s.state().claims.size()).toBe(2n);
+  });
+
+  it('stores only the declared public ledger schema after an above-threshold claim', () => {
+    const s = setup();
+    s.call('openEpoch', s.epoch, s.adminSecret);
+    s.call('registerRecord', s.record, s.randomness, s.adminSecret);
+    const request = b32();
+    s.call('proveIncomeTier', s.record, s.randomness, s.employeeSecret, 1n, request);
+    expect(Object.keys(s.state()).sort()).toEqual([
+      'adminAuthenticator', 'claimRecords', 'claims', 'currency', 'domain', 'epochs', 'organization', 'records', 'revoked',
+    ].sort());
+    expect(s.state().claims.lookup(request)).toBe(1n);
+    expect(hex(s.state().records.lookup(s.state().claimRecords.lookup(request)))).toBe(hex(s.epoch));
+  });
+
   it('binds salary and employee identity to an issued record', () => {
     const s = setup();
     s.call('openEpoch', s.epoch, s.adminSecret);
